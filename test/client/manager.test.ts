@@ -192,6 +192,36 @@ describe("ServerManager", () => {
 		});
 		await expect(manager.listTools("mock")).rejects.toThrow();
 	});
+
+	test("callToolStream finishes when a task is input_required", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, timeout: 5_000 });
+		const messages: Array<{ type: string }> = [];
+		for await (const message of manager.callToolStream("mock", "ask_echo", { message: "need input" })) {
+			messages.push(message);
+			if (message.type === "result" || message.type === "error") break;
+		}
+		expect(messages.some((m) => m.type === "taskCreated")).toBe(true);
+		expect(messages.some((m) => m.type === "taskStatus")).toBe(true);
+		const result = messages.find((m) => m.type === "result") as
+			| { type: "result"; result: { content: { text: string }[] } }
+			| undefined;
+		expect(result?.result.content[0]?.text).toBe("need input");
+	});
+
+	test("callToolStream times out when the task RPC never replies", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile(),
+			configDir: "/tmp",
+			auth: {},
+			timeout: 400,
+			maxRetries: 0,
+		});
+		await expect(async () => {
+			for await (const _ of manager.callToolStream("mock", "hang_task")) {
+				// hang_task never replies
+			}
+		}).toThrow(/timed out/);
+	});
 });
 
 describe("ServerManager with HTTP servers", () => {

@@ -35,6 +35,16 @@ describe("mcpx task", () => {
 		expect(result.content[0].text).toBe("waited result");
 	});
 
+	test("exec --wait returns when a task enters input_required", async () => {
+		const proc = run("exec", "mock", "ask_echo", '{"message": "from input_required"}');
+		const exitCode = await proc.exited;
+		const stdout = await new Response(proc.stdout).text();
+		expect(exitCode).toBe(0);
+
+		const result = JSON.parse(stdout);
+		expect(result.content[0].text).toBe("from input_required");
+	});
+
 	test("exec on non-task tool still works normally", async () => {
 		const proc = run("exec", "mock", "echo", '{"message": "sync hello"}');
 		const exitCode = await proc.exited;

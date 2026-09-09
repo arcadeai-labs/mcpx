@@ -495,11 +495,16 @@ export class ServerManager {
 		taskOptions?: { ttl?: number; signal?: AbortSignal },
 	): AsyncGenerator<TaskStreamMessage> {
 		const client = await this.getClient(serverName);
-		const created = await this.extensionRequest<unknown>(client, "tools/call", {
-			name: toolName,
-			arguments: args,
-			task: { ttl: taskOptions?.ttl },
-		});
+		const created = await this.taskRequest<unknown>(
+			client,
+			"tools/call",
+			{
+				name: toolName,
+				arguments: args,
+				task: { ttl: taskOptions?.ttl },
+			},
+			`callToolStream(${serverName}/${toolName})`,
+		);
 
 		if (!isCreateTaskResult(created)) {
 			yield { type: "result", result: created as CallToolResult };
@@ -515,11 +520,23 @@ export class ServerManager {
 				yield { type: "error", error: new Error("Task cancelled") };
 				return;
 			}
-			const status = await this.extensionRequest<GetTaskResult>(client, "tasks/get", { taskId });
+			const status = await this.taskRequest<GetTaskResult>(
+				client,
+				"tasks/get",
+				{ taskId },
+				`getTask(${serverName}/${taskId})`,
+			);
 			yield { type: "taskStatus", task: status };
 			taskId = status.taskId;
-			if (status.status === "completed") {
-				const result = await this.extensionRequest<CallToolResult>(client, "tasks/result", { taskId });
+			if (status.status === "completed" || status.status === "input_required") {
+				// `input_required` delivers queued elicitation/sampling via tasks/result
+				// and blocks until the task is terminal (same as the v1 SDK stream).
+				const result = await this.taskRequest<CallToolResult>(
+					client,
+					"tasks/result",
+					{ taskId },
+					`getTaskResult(${serverName}/${taskId})`,
+				);
 				yield { type: "result", result };
 				return;
 			}
@@ -543,20 +560,24 @@ export class ServerManager {
 		return client.request({ method, params }, PASSTHROUGH_RESULT_SCHEMA) as Promise<T>;
 	}
 
+	/** `extensionRequest` raced against `MCP_TIMEOUT`. */
+	private taskRequest<T>(client: Client, method: string, params: Record<string, unknown>, label: string): Promise<T> {
+		return this.withTimeout(this.extensionRequest<T>(client, method, params), label);
+	}
+
 	/** Get the status of a task */
 	async getTask(serverName: string, taskId: string): Promise<GetTaskResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(
-			this.extensionRequest<GetTaskResult>(client, "tasks/get", { taskId }),
-			`getTask(${serverName}/${taskId})`,
-		);
+		return this.taskRequest<GetTaskResult>(client, "tasks/get", { taskId }, `getTask(${serverName}/${taskId})`);
 	}
 
 	/** Retrieve the result of a completed task */
 	async getTaskResult(serverName: string, taskId: string): Promise<CallToolResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(
-			this.extensionRequest<CallToolResult>(client, "tasks/result", { taskId }),
+		return this.taskRequest<CallToolResult>(
+			client,
+			"tasks/result",
+			{ taskId },
 			`getTaskResult(${serverName}/${taskId})`,
 		);
 	}
@@ -564,8 +585,10 @@ export class ServerManager {
 	/** List tasks on a server */
 	async listTasks(serverName: string, cursor?: string): Promise<ListTasksResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(
-			this.extensionRequest<ListTasksResult>(client, "tasks/list", cursor ? { cursor } : {}),
+		return this.taskRequest<ListTasksResult>(
+			client,
+			"tasks/list",
+			cursor ? { cursor } : {},
 			`listTasks(${serverName})`,
 		);
 	}
@@ -573,8 +596,10 @@ export class ServerManager {
 	/** Cancel a running task */
 	async cancelTask(serverName: string, taskId: string): Promise<CancelTaskResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(
-			this.extensionRequest<CancelTaskResult>(client, "tasks/cancel", { taskId }),
+		return this.taskRequest<CancelTaskResult>(
+			client,
+			"tasks/cancel",
+			{ taskId },
 			`cancelTask(${serverName}/${taskId})`,
 		);
 	}
