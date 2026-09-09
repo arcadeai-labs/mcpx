@@ -109,6 +109,7 @@ export interface ServerOverview {
 	version?: { name: string; version: string };
 	capabilities?: Record<string, unknown>;
 	instructions?: string;
+	sessionId?: string;
 	tools: Tool[];
 	resourceCount: number;
 	promptCount: number;
@@ -124,6 +125,7 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 			version: overview.version ?? null,
 			capabilities: overview.capabilities ?? null,
 			instructions: overview.instructions ?? null,
+			sessionId: overview.sessionId ?? null,
 			tools: overview.tools.map((t) => ({ name: t.name, description: t.description ?? "" })),
 			resourceCount: overview.resourceCount,
 			promptCount: overview.promptCount,
@@ -146,6 +148,11 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 			}
 			lines.push(headerLine);
 			lines.push(underline(headerVisible));
+
+			if (overview.sessionId) {
+				lines.push("");
+				lines.push(`${theme.tool("Session:")} ${theme.muted(overview.sessionId)}`);
+			}
 
 			// Capabilities
 			if (overview.capabilities) {

@@ -42,6 +42,7 @@ export function registerInfoCommand(program: Command) {
 									version: serverInfo.version,
 									capabilities: caps,
 									instructions: serverInfo.instructions,
+									sessionId: serverInfo.sessionId,
 									tools,
 									resourceCount: resources.length,
 									promptCount: prompts.length,

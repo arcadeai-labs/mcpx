@@ -83,6 +83,7 @@ describe("mcpx allow", () => {
 		expect(settings.permissions.allow).toContain("Bash(mcpx info:*)");
 		expect(settings.permissions.allow).toContain("Bash(mcpx servers:*)");
 		expect(settings.permissions.allow).toContain("Bash(mcpx ping:*)");
+		expect(settings.permissions.allow).toContain("Bash(mcpx session:*)");
 		expect(settings.permissions.allow).toContain("Bash(mcpx resource:*)");
 		expect(settings.permissions.allow).toContain("Bash(mcpx prompt:*)");
 		expect(settings.permissions.allow).toContain("Bash(mcpx task:*)");
@@ -323,6 +324,7 @@ describe("mcpx allow --cursor", () => {
 		expect(settings.permissions.allow).toContain("Shell(mcpx info:*)");
 		expect(settings.permissions.allow).toContain("Shell(mcpx servers:*)");
 		expect(settings.permissions.allow).toContain("Shell(mcpx ping:*)");
+		expect(settings.permissions.allow).toContain("Shell(mcpx session:*)");
 		expect(settings.permissions.allow).toContain("Shell(mcpx resource:*)");
 		expect(settings.permissions.allow).toContain("Shell(mcpx prompt:*)");
 		expect(settings.permissions.allow).toContain("Shell(mcpx task:*)");

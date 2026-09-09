@@ -48,6 +48,8 @@ export interface ServerInfo {
 	version?: { name: string; version: string };
 	capabilities?: ServerCapabilities;
 	instructions?: string;
+	/** Streamable HTTP session id, if the transport received one after connect. */
+	sessionId?: string;
 }
 
 export interface ServerError {
@@ -373,14 +375,29 @@ export class ServerManager {
 		return tools.find((t) => t.name === toolName);
 	}
 
-	/** Get server info (version, capabilities, instructions) */
+	/** Get server info (version, capabilities, instructions, session id) */
 	async getServerInfo(serverName: string): Promise<ServerInfo> {
 		const client = await this.getClient(serverName);
 		return {
 			version: client.getServerVersion() as ServerInfo["version"],
 			capabilities: client.getServerCapabilities(),
 			instructions: client.getInstructions(),
+			sessionId: this.readSessionId(serverName),
 		};
+	}
+
+	/**
+	 * Streamable HTTP session id from the live transport after connect.
+	 * Stdio, SSE, and servers that do not issue `mcp-session-id` return undefined.
+	 */
+	async getSessionId(serverName: string): Promise<string | undefined> {
+		await this.getClient(serverName);
+		return this.readSessionId(serverName);
+	}
+
+	private readSessionId(serverName: string): string | undefined {
+		const sessionId = this.transports.get(serverName)?.sessionId;
+		return sessionId || undefined;
 	}
 
 	/** List resources for a single server */

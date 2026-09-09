@@ -29,6 +29,9 @@ describe("mcpx info", () => {
 		// Resource and prompt counts
 		expect(result.resourceCount).toBe(2);
 		expect(result.promptCount).toBe(2);
+
+		// stdio transports do not issue a Streamable HTTP session id
+		expect(result.sessionId).toBeNull();
 	});
 
 	test("info <server> <tool> shows tool schema", async () => {
