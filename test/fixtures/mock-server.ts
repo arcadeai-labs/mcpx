@@ -364,6 +364,8 @@ function handleMessage(line: string) {
 		});
 	} else if (msg.method === "ping") {
 		respond(msg.id, {});
+	} else if (msg.id !== undefined && msg.method) {
+		respondError(msg.id, -32601, `Method not found: ${msg.method}`);
 	}
 }
 

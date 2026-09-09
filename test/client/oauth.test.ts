@@ -14,7 +14,7 @@ const mockRefreshAuthorization = mock(() =>
 	}),
 );
 
-mock.module("@modelcontextprotocol/sdk/client/auth.js", () => ({
+mock.module("../../src/client/oauth-api.ts", () => ({
 	auth: mock(),
 	discoverOAuthServerInfo: mock(),
 	refreshAuthorization: mockRefreshAuthorization,

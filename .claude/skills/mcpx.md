@@ -203,6 +203,7 @@ mcpx deauth <server>           # remove stored auth
 | `--force-color`             | Force ANSI colors even when piped (also `FORCE_COLOR=1`) |
 | `-S, --show-secrets`        | Show full auth tokens in verbose output (unmasked)       |
 | `-l, --log-level <level>`   | Minimum server log level to display (default: `warning`) |
+| `--mcp-version <version>`   | MCP protocol era: `v1`, `v2`, or `auto` (default: `v1`)  |
 
 ## `add` options
 
@@ -217,6 +218,7 @@ mcpx deauth <server>           # remove stored auth
 | `--transport <type>`     | Transport: `sse` or `streamable-http`                                                                       |
 | `--allowed-tools <pat>`  | Allowed tool pattern. Repeatable, or comma-separated.                                                       |
 | `--disabled-tools <pat>` | Disabled tool pattern. Repeatable, or comma-separated.                                                      |
+| `--mcp-version <version>`| MCP protocol era for this server: `v1`, `v2`, or `auto`                                                     |
 | `-f, --force`            | Overwrite if server already exists                                                                          |
 | `--no-auth`              | Skip automatic OAuth after adding                                                                           |
 | `--no-index`             | Skip rebuilding the search index                                                                            |
@@ -245,7 +247,9 @@ For agents that don't have shell access (remote, persistent, or isolated agents)
 ```typescript
 import { McpxClient } from "@arcadeai/mcpx";
 
-const client = new McpxClient();
+const client = new McpxClient(); // mcp: "v1" (legacy) by default
+// const client = new McpxClient({ mcp: "v2" }); // pin 2026-07-28
+// const client = new McpxClient({ mcp: "auto" }); // probe v2, fall back to v1
 const results = await client.search("send a message");
 const tool = await client.info("arcade", "Slack_SendMessage");
 const result = await client.exec("arcade", "Slack_SendMessage", { channel: "#general", message: "hello" });
@@ -264,3 +268,4 @@ The SDK follows the same search → inspect → exec workflow. Server management
 | `MCP_MAX_RETRIES` | Retry attempts              | `3`        |
 | `MCP_STRICT_ENV`  | Error on missing `${VAR}`   | `true`     |
 | `MCP_DEBUG`       | Enable debug output         | `false`    |
+| `MCP_VERSION`     | MCP protocol era (`v1`, `v2`, `auto`) | `v1` |

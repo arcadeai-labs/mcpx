@@ -1,4 +1,4 @@
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/client";
 import pkg from "../../package.json";
 import type { HttpServerConfig } from "../config/schemas.ts";
 import { createDebugFetch, type FetchLike } from "./debug-fetch.ts";

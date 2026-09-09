@@ -13,6 +13,8 @@ export const ENV = {
 	STRICT_ENV: "MCP_STRICT_ENV",
 	CONFIG_PATH: "MCP_CONFIG_PATH",
 	NO_UPDATE_CHECK: "MCPX_NO_UPDATE_CHECK",
+	/** MCP protocol era: v1 (legacy initialize), v2 (2026-07-28), or auto. */
+	MCP_VERSION: "MCP_VERSION",
 } as const;
 
 /** Default values for configurable options */

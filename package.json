@@ -1,6 +1,6 @@
 {
 	"name": "@arcadeai/mcpx",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"description": "A command-line interface for MCP servers. curl for MCP.",
 	"type": "module",
 	"exports": {
@@ -51,7 +51,8 @@
 	"license": "MIT",
 	"dependencies": {
 		"@huggingface/transformers": "^4.2.0",
-		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@modelcontextprotocol/client": "2.0.0",
+		"@modelcontextprotocol/core": "2.0.0",
 		"@types/picomatch": "^4.0.3",
 		"ajv": "^8.20.0",
 		"ansis": "^4.2.0",

@@ -92,6 +92,10 @@ function handleMessage(line: string) {
 		}
 	} else if (msg.method === "ping") {
 		respond(msg.id, {});
+	} else if (msg.id !== undefined && msg.method) {
+		process.stdout.write(
+			`${JSON.stringify({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Method not found: ${msg.method}` } })}\n`,
+		);
 	}
 }
 

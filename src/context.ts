@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { ServerManager } from "./client/manager.ts";
+import { type McpVersion, parseMcpVersion, resolveMcpVersion } from "./client/mcp-version.ts";
 import { loadConfig } from "./config/loader.ts";
 import type { Config } from "./config/schemas.ts";
 import { DEFAULTS, ENV } from "./constants.ts";
@@ -32,6 +33,20 @@ export async function getContext(program: Command): Promise<AppContext> {
 	const maxRetries = Number(process.env[ENV.MAX_RETRIES] ?? DEFAULTS.MAX_RETRIES);
 	const logLevel = (opts.logLevel as string | undefined) ?? DEFAULTS.LOG_LEVEL;
 
+	let mcp: McpVersion;
+	try {
+		// CLI --mcp-version overrides MCP_VERSION; per-server `mcp` still wins later.
+		if (opts.mcpVersion !== undefined) parseMcpVersion(opts.mcpVersion as string);
+		if (process.env[ENV.MCP_VERSION]) parseMcpVersion(process.env[ENV.MCP_VERSION]);
+		mcp = resolveMcpVersion({
+			cli: opts.mcpVersion as string | undefined,
+			env: process.env[ENV.MCP_VERSION],
+		});
+	} catch (err) {
+		logger.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+		process.exit(1);
+	}
+
 	const json = !!(opts.json as boolean | undefined);
 	// Commander's --no-interactive sets opts.interactive = false (default true)
 	const noInteractive = opts.interactive === false;
@@ -55,6 +70,7 @@ export async function getContext(program: Command): Promise<AppContext> {
 		logLevel,
 		json,
 		noInteractive,
+		mcp,
 	});
 
 	const formatOptions: FormatOptions = {

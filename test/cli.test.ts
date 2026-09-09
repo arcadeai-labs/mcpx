@@ -48,5 +48,6 @@ describe("mcpx", () => {
 		expect(stdout).toContain("search");
 		expect(stdout).toContain("exec");
 		expect(stdout).toContain("auth");
+		expect(stdout).toContain("--mcp-version");
 	});
 });

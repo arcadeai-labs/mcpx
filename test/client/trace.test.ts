@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
+import type { JSONRPCMessage, Transport } from "@modelcontextprotocol/client";
 import { wrapTransportWithTrace } from "../../src/client/trace.ts";
 
 /** Strip ANSI escape codes so assertions work on both TTY and non-TTY (CI) */

@@ -51,6 +51,10 @@ program
 	.name("mcpx")
 	.description("A command-line interface for MCP servers. curl for MCP.")
 	.version(pkg.version)
+	.option(
+		"--mcp-version <version>",
+		"MCP protocol era: v1 (legacy initialize), v2 (2026-07-28), or auto (probe v2, fall back to v1)",
+	)
 	.option("-c, --config <path>", "config directory path")
 	.option("-d, --with-descriptions", "include tool descriptions in output")
 	.option("-j, --json", "force JSON output")

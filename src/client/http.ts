@@ -1,4 +1,4 @@
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { buildTransportInit, type TransportDeps } from "./transport-options.ts";
 
 export function createHttpTransport(deps: TransportDeps): StreamableHTTPClientTransport {

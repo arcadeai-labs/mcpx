@@ -137,6 +137,7 @@ mcpx search -n 5 "manage pull requests"
 | `--no-color`              | Disable ANSI colors in output                            |
 | `--force-color`           | Force ANSI colors even when piped                        |
 | `-l, --log-level <level>` | Minimum server log level to display (default: `warning`) |
+| `--mcp-version <version>` | MCP protocol era: `v1`, `v2`, or `auto` (default: `v1`) |
 
 ### Output & colors
 
@@ -209,6 +210,7 @@ mcpx remove my-api --dry-run
 | `--transport <type>`       | Transport: `sse` or `streamable-http`                                  |
 | `--allowed-tools <pat>`    | Allowed tool pattern. Repeatable, or comma-separated.                  |
 | `--disabled-tools <pat>`   | Disabled tool pattern. Repeatable, or comma-separated.                 |
+| `--mcp-version <version>`  | MCP protocol era for this server (`v1`, `v2`, or `auto`)               |
 | `-f, --force`              | Overwrite if server already exists                                     |
 | `--no-auth`                | Skip automatic OAuth after adding                                      |
 | `--no-index`               | Skip rebuilding the search index                                       |
@@ -248,13 +250,17 @@ Standard MCP server config format. Supports both stdio and HTTP servers.
     "legacy-sse": {
       "url": "https://legacy.example.com/sse",
       "transport": "sse"
+    },
+    "modern-mcp": {
+      "url": "https://mcp.example.com",
+      "mcp": "v2"
     }
   }
 }
 ```
 
 **Stdio servers** — `command` + `args`, spawned as child processes
-**HTTP servers** — `url`, with optional static `headers` for pre-shared tokens. OAuth is auto-discovered at connection time via `.well-known/oauth-authorization-server` — no config needed. By default, mcpx tries Streamable HTTP first and automatically falls back to legacy SSE if the server doesn't support it. Set `"transport": "sse"` or `"transport": "streamable-http"` to skip auto-detection.
+**HTTP servers** — `url`, with optional static `headers` for pre-shared tokens. OAuth is auto-discovered at connection time via `.well-known/oauth-authorization-server` — no config needed. By default, mcpx tries Streamable HTTP first and automatically falls back to legacy SSE if the server doesn't support it. Set `"transport": "sse"` or `"transport": "streamable-http"` to skip auto-detection. Set `"mcp": "v1"`, `"v2"`, or `"auto"` to choose the protocol era (see [MCP versions](#mcp-versions)).
 
 Environment variables are interpolated via `${VAR_NAME}` syntax. Set `MCP_STRICT_ENV=false` to warn instead of error on missing variables.
 
@@ -335,6 +341,40 @@ Scenarios and keywords are extracted heuristically from tool names and descripti
 | `MCP_CONCURRENCY` | Parallel server connections | `5`        |
 | `MCP_MAX_RETRIES` | Retry attempts              | `3`        |
 | `MCP_STRICT_ENV`  | Error on missing `${VAR}`   | `true`     |
+| `MCP_VERSION`     | MCP protocol era (`v1`, `v2`, `auto`) | `v1` |
+
+## MCP versions
+
+mcpx uses the official MCP TypeScript **SDK v2** client (`@modelcontextprotocol/client`) and can speak both protocol eras:
+
+| Value  | Handshake                                                         | Use when                                      |
+| ------ | ----------------------------------------------------------------- | --------------------------------------------- |
+| `v1`   | 2025 `initialize` (legacy). Default.                              | Existing MCP servers (2024–2025 spec)         |
+| `v2`   | Pin [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) (`server/discover`). No fallback. | Servers that require the modern protocol      |
+| `auto` | Probe for 2026-07-28, fall back to the 2025 handshake             | Mixed or unknown servers                      |
+
+Choose it in any of these places (most specific wins):
+
+```bash
+# 1. Per-server config (highest priority)
+mcpx add github --url https://mcp.github.com --mcp-version v2
+# or in servers.json: { "url": "...", "mcp": "v2" }
+
+# 2. CLI flag (applies to servers without an `mcp` field)
+mcpx --mcp-version v2 ping github
+mcpx --mcp-version auto exec github search_repositories '{"query":"mcp"}'
+
+# 3. Environment variable
+export MCP_VERSION=v2
+mcpx ping github
+```
+
+```typescript
+// 4. TypeScript SDK
+const client = new McpxClient({ mcp: "v2" });
+```
+
+`mcpx info <server>` reports the requested `mcp` value plus the negotiated `protocolVersion` and `protocolEra`.
 
 ## OAuth Flow
 
@@ -700,6 +740,8 @@ For agents that don't have shell access — remote, persistent, or isolated agen
 import { McpxClient } from "@arcadeai/mcpx";
 
 const client = new McpxClient();
+// or: new McpxClient({ mcp: "v2" }) // official SDK v2 client, pin 2026-07-28
+// or: new McpxClient({ mcp: "auto" }) // probe v2, fall back to v1
 // or: new McpxClient({ configDir: "/path/to/.mcpx" })
 // or: new McpxClient({ servers: { mcpServers: { ... } } })
 
@@ -731,9 +773,10 @@ const client = new McpxClient({
   servers: {
     mcpServers: {
       local: { command: "node", args: ["server.js"] },
-      remote: { url: "https://mcp.example.com" },
+      remote: { url: "https://mcp.example.com", mcp: "v2" },
     },
   },
+  mcp: "auto", // default for servers that omit `mcp`
 });
 ```
 
@@ -909,7 +952,7 @@ bun lint
 | ----------- | ----------------------------------------------------- |
 | Runtime     | Bun                                                   |
 | Language    | TypeScript                                            |
-| MCP Client  | `@modelcontextprotocol/sdk`                           |
+| MCP Client  | `@modelcontextprotocol/client` (official SDK v2)          |
 | CLI Parsing | `commander`                                           |
 | Validation  | `ajv` (JSON Schema)                                   |
 | Embeddings  | `@huggingface/transformers` (Xenova/bge-small-en-v1.5) |

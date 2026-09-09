@@ -147,6 +147,44 @@ describe("ServerManager", () => {
 		const tools = await manager.listTools("mock");
 		expect(tools.length).toBeGreaterThan(0);
 	});
+
+	test("connects with mcp v1 (legacy initialize)", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, mcp: "v1" });
+		const info = await manager.getServerInfo("mock");
+		expect(info.mcp).toBe("v1");
+		expect(info.protocolEra).toBe("legacy");
+		expect(info.capabilities?.tools).toBeDefined();
+	});
+
+	test("connects with mcp auto against a v1 mock server", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, mcp: "auto" });
+		const tools = await manager.listTools("mock");
+		expect(tools.map((t) => t.name)).toContain("echo");
+	});
+
+	test("honors per-server mcp over manager default", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile({ mcp: "v1" }),
+			configDir: "/tmp",
+			auth: {},
+			mcp: "v2",
+		});
+		const info = await manager.getServerInfo("mock");
+		expect(info.mcp).toBe("v1");
+		expect(info.protocolEra).toBe("legacy");
+	});
+
+	test("mcp v2 pin fails against a legacy-only mock server", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile(),
+			configDir: "/tmp",
+			auth: {},
+			mcp: "v2",
+			maxRetries: 0,
+			timeout: 5_000,
+		});
+		await expect(manager.listTools("mock")).rejects.toThrow();
+	});
 });
 
 describe("ServerManager with HTTP servers", () => {

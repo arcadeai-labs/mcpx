@@ -1,15 +1,15 @@
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import { auth, discoverOAuthServerInfo, refreshAuthorization } from "@modelcontextprotocol/sdk/client/auth.js";
 import type {
 	OAuthClientInformationMixed,
 	OAuthClientMetadata,
+	OAuthClientProvider,
 	OAuthTokens,
-} from "@modelcontextprotocol/sdk/shared/auth.js";
+} from "@modelcontextprotocol/client";
 import { saveAuth } from "../config/loader.ts";
 import type { AuthFile } from "../config/schemas.ts";
 import type { FormatOptions } from "../output/formatter.ts";
 import { logger } from "../output/logger.ts";
 import { openBrowser } from "./browser.ts";
+import { auth, discoverOAuthServerInfo, refreshAuthorization } from "./oauth-api.ts";
 
 export class McpOAuthProvider implements OAuthClientProvider {
 	private serverName: string;

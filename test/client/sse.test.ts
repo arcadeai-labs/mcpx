@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { SSEClientTransport } from "@modelcontextprotocol/client";
 import { createSseTransport } from "../../src/client/sse.ts";
 import type { HttpServerConfig } from "../../src/config/schemas.ts";
 

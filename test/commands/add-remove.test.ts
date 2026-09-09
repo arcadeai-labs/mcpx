@@ -119,6 +119,40 @@ describe("mcpx add", () => {
 		expect(servers.mcpServers.filtered.disabledTools).toEqual(["delete"]);
 	});
 
+	test("stores --mcp-version on the server config", async () => {
+		const { exitCode } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"v2-server",
+			"--command",
+			"echo",
+			"--mcp-version",
+			"v2",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(0);
+
+		const servers = await Bun.file(join(tmpDir, "servers.json")).json();
+		expect(servers.mcpServers["v2-server"].mcp).toBe("v2");
+	});
+
+	test("rejects invalid --mcp-version", async () => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"bad-mcp",
+			"--command",
+			"echo",
+			"--mcp-version",
+			"v9",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("v1");
+	});
+
 	test("passes args after -- to the stdio command", async () => {
 		const { exitCode } = await run([
 			"-c",
