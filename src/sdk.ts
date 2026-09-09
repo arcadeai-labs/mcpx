@@ -455,10 +455,19 @@ export class McpxClient {
 	// Server info
 	// ---------------------------------------------------------------------------
 
-	/** Get server info (version, capabilities, instructions). */
+	/** Get server info (version, capabilities, instructions, session id). */
 	async getServerInfo(server: string): Promise<ServerInfo> {
 		const manager = await this.ensureConnected();
 		return manager.getServerInfo(server);
+	}
+
+	/**
+	 * Streamable HTTP session id for a connected server, if the transport received one.
+	 * Connects lazily. Returns undefined for stdio/SSE or servers that omit `mcp-session-id`.
+	 */
+	async getSessionId(server: string): Promise<string | undefined> {
+		const manager = await this.ensureConnected();
+		return manager.getSessionId(server);
 	}
 
 	/** Get all configured server names. */

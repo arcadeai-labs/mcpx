@@ -8,6 +8,7 @@ interface PingResult {
 	server: string;
 	success: boolean;
 	latencyMs?: number;
+	sessionId?: string;
 	error?: string;
 }
 
@@ -36,7 +37,13 @@ export function registerPingCommand(program: Command) {
 						const start = Date.now();
 						try {
 							await manager.getClient(serverName);
-							results.push({ server: serverName, success: true, latencyMs: Date.now() - start });
+							const sessionId = await manager.getSessionId(serverName);
+							results.push({
+								server: serverName,
+								success: true,
+								latencyMs: Date.now() - start,
+								...(sessionId ? { sessionId } : {}),
+							});
 						} catch (err) {
 							results.push({ server: serverName, success: false, error: String(err) });
 						}
@@ -50,7 +57,8 @@ export function registerPingCommand(program: Command) {
 				} else {
 					for (const r of results) {
 						if (r.success) {
-							console.log(`${green("✔")} ${r.server} connected (${r.latencyMs}ms)`);
+							const session = r.sessionId ? `  session ${r.sessionId}` : "";
+							console.log(`${green("✔")} ${r.server} connected (${r.latencyMs}ms)${session}`);
 						} else {
 							console.log(`${red("✖")} ${r.server} failed: ${r.error}`);
 						}

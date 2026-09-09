@@ -142,7 +142,7 @@ mcpx deauth <server>           # remove stored auth
 | `mcpx`                                | List all servers and tools        |
 | `mcpx servers`                        | List servers (name, type, detail) |
 | `mcpx -d`                             | List with descriptions            |
-| `mcpx info <server>`                  | Server overview (version, capabilities, tools) |
+| `mcpx info <server>`                  | Server overview (version, capabilities, tools, session id) |
 | `mcpx info <server> <tool>`           | Show tool schema + annotations    |
 | `mcpx exec <server>`                  | List tools for a server           |
 | `mcpx exec <tool> '<json>'`           | Execute tool (server auto-resolved) |
@@ -162,6 +162,8 @@ mcpx deauth <server>           # remove stored auth
 | `mcpx deauth <server>`                | Remove stored authentication      |
 | `mcpx ping`                           | Check connectivity to all servers |
 | `mcpx ping <server> [server2...]`     | Check specific server(s)          |
+| `mcpx session`                        | Print Streamable HTTP session ids |
+| `mcpx session <server> [server2...]`  | Print session id(s) for servers   |
 | `mcpx add <name> --command <cmd>`     | Add a stdio MCP server                              |
 | `mcpx add [name] --url <url>`         | Add an HTTP MCP server (name derived from URL if omitted) |
 | `mcpx remove <name>`                  | Remove an MCP server              |
@@ -253,6 +255,7 @@ const client = new McpxClient(); // mcp: "v1" (legacy) by default
 const results = await client.search("send a message");
 const tool = await client.info("arcade", "Slack_SendMessage");
 const result = await client.exec("arcade", "Slack_SendMessage", { channel: "#general", message: "hello" });
+const sessionId = await client.getSessionId("arcade");
 await client.close();
 ```
 

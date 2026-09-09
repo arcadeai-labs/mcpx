@@ -45,6 +45,7 @@ export function registerInfoCommand(program: Command) {
 									mcp: serverInfo.mcp,
 									protocolVersion: serverInfo.protocolVersion,
 									protocolEra: serverInfo.protocolEra,
+									sessionId: serverInfo.sessionId,
 									tools,
 									resourceCount: resources.length,
 									promptCount: prompts.length,

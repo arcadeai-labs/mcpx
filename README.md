@@ -74,7 +74,7 @@ mcpx search -n 5 "manage pull requests"
 | -------------------------------------- | ------------------------------------------------------ |
 | `mcpx`                                 | List all configured servers and tools                  |
 | `mcpx servers`                         | List configured servers (name, type, detail)           |
-| `mcpx info <server>`                   | Server overview (version, capabilities, tools, counts) |
+| `mcpx info <server>`                   | Server overview (version, capabilities, tools, counts, session id) |
 | `mcpx info <server> <tool>`            | Show tool schema                                       |
 | `mcpx search <query>`                  | Search tools (keyword + semantic)                      |
 | `mcpx search -k <pattern>`             | Keyword/glob search only                               |
@@ -96,6 +96,8 @@ mcpx search -n 5 "manage pull requests"
 | `mcpx remove <name>`                   | Remove an MCP server from your config                  |
 | `mcpx ping`                            | Check connectivity to all configured servers           |
 | `mcpx ping <server> [server2...]`      | Check connectivity to specific server(s)               |
+| `mcpx session`                         | Print Streamable HTTP session ids for all servers      |
+| `mcpx session <server> [server2...]`   | Print Streamable HTTP session id(s) for specific servers |
 | `mcpx skill install --claude`          | Install the mcpx skill for Claude Code                 |
 | `mcpx skill install --cursor`          | Install the mcpx rule for Cursor                       |
 | `mcpx resource`                        | List all resources across all servers                  |
@@ -544,6 +546,32 @@ mcpx -v -S exec arcade Gmail_WhoAmI
 
 The `>` / `<` convention matches curl — `>` for request, `<` for response. The `→` / `←` arrows show JSON-RPC protocol messages with method names, IDs, round-trip timing, and result summaries.
 
+## Session IDs
+
+Streamable HTTP servers may issue an `mcp-session-id` after initialize. That id lives on the transport mcpx keeps after connect — it is not a config-file field. You can export it from a live connection:
+
+```bash
+# Print session ids for every configured server
+mcpx session
+
+# One or more servers
+mcpx session github
+mcpx session github linear --json
+
+# Also included on connect metadata
+mcpx ping github --json
+mcpx info github
+```
+
+Stdio and SSE transports (and HTTP servers that omit the header) report no session id.
+
+From TypeScript:
+
+```typescript
+const sessionId = await client.getSessionId("github");
+// or: (await client.getServerInfo("github")).sessionId
+```
+
 ## Input Validation
 
 `mcpx exec` validates tool arguments locally before sending them to the server. MCP tools advertise a JSON Schema for their inputs — mcpx uses this to catch errors fast, without a round-trip.
@@ -759,7 +787,7 @@ const result = await client.exec("arcade", "Slack_SendMessage", {
 
 // Also available: listTools, listResources, readResource,
 // listPrompts, getPrompt, listTasks, getTask, cancelTask,
-// getServerInfo, getServerNames, validateToolInput
+// getServerInfo, getServerNames, getSessionId, validateToolInput
 
 await client.close();
 ```

@@ -50,6 +50,8 @@ export interface ServerInfo {
 	protocolVersion?: string;
 	/** `legacy` (2025 initialize) or `modern` (2026-07-28+). */
 	protocolEra?: string;
+	/** Streamable HTTP session id, if the transport received one after connect. */
+	sessionId?: string;
 }
 
 /** Messages yielded while waiting on a task-augmented tool call. */
@@ -393,7 +395,7 @@ export class ServerManager {
 		return tools.find((t) => t.name === toolName);
 	}
 
-	/** Get server info (version, capabilities, instructions) */
+	/** Get server info (version, capabilities, instructions, session id) */
 	async getServerInfo(serverName: string): Promise<ServerInfo> {
 		const client = await this.getClient(serverName);
 		const config = this.servers.mcpServers[serverName];
@@ -405,7 +407,22 @@ export class ServerManager {
 			mcp,
 			protocolVersion: client.getNegotiatedProtocolVersion(),
 			protocolEra: client.getProtocolEra(),
+			sessionId: this.readSessionId(serverName),
 		};
+	}
+
+	/**
+	 * Streamable HTTP session id from the live transport after connect.
+	 * Stdio, SSE, and servers that do not issue `mcp-session-id` return undefined.
+	 */
+	async getSessionId(serverName: string): Promise<string | undefined> {
+		await this.getClient(serverName);
+		return this.readSessionId(serverName);
+	}
+
+	private readSessionId(serverName: string): string | undefined {
+		const sessionId = this.transports.get(serverName)?.sessionId;
+		return sessionId || undefined;
 	}
 
 	/** List resources for a single server */

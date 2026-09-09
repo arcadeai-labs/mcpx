@@ -112,6 +112,7 @@ export interface ServerOverview {
 	mcp?: string;
 	protocolVersion?: string;
 	protocolEra?: string;
+	sessionId?: string;
 	tools: Tool[];
 	resourceCount: number;
 	promptCount: number;
@@ -130,6 +131,7 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 			mcp: overview.mcp ?? null,
 			protocolVersion: overview.protocolVersion ?? null,
 			protocolEra: overview.protocolEra ?? null,
+			sessionId: overview.sessionId ?? null,
 			tools: overview.tools.map((t) => ({ name: t.name, description: t.description ?? "" })),
 			resourceCount: overview.resourceCount,
 			promptCount: overview.promptCount,
@@ -161,6 +163,11 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 					: overview.protocolEra;
 				const bits = [mcpLabel, proto].filter(Boolean);
 				lines.push(theme.muted(bits.join(" · ")));
+			}
+
+			if (overview.sessionId) {
+				lines.push("");
+				lines.push(`${theme.tool("Session:")} ${theme.muted(overview.sessionId)}`);
 			}
 
 			// Capabilities
