@@ -9,6 +9,7 @@ import {
 	ToolApprovalRequiredError,
 } from "../../src/sdk.ts";
 import * as semanticModule from "../../src/search/semantic.ts";
+import { startMockHttpServer } from "../helpers/mock-http.ts";
 
 // Snapshot the real exports BEFORE any test mocks the module. `import * as`
 // returns a live namespace whose properties track the current module, so once
@@ -445,6 +446,29 @@ describe("McpxClient", () => {
 		const info = await client.getServerInfo("mock");
 		expect(info.version?.name).toBe("mock-server");
 		expect(info.capabilities?.tools).toBeDefined();
+		expect(info.sessionId).toBeUndefined();
+	});
+
+	test("getSessionId is undefined for stdio servers", async () => {
+		client = new McpxClient({ servers: makeInlineServers() });
+		expect(await client.getSessionId("mock")).toBeUndefined();
+	});
+
+	test("getSessionId returns the Streamable HTTP session id", async () => {
+		const http = await startMockHttpServer();
+		try {
+			client = new McpxClient({
+				servers: { mcpServers: { remote: { url: http.url } } },
+				timeout: 10_000,
+				maxRetries: 0,
+			});
+			const sessionId = await client.getSessionId("remote");
+			expect(sessionId).toBeDefined();
+			expect(sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+			expect((await client.getServerInfo("remote")).sessionId).toBe(sessionId);
+		} finally {
+			http.stop();
+		}
 	});
 
 	// ---------------------------------------------------------------------------

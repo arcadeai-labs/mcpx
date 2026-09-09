@@ -74,6 +74,7 @@ interface PingResult {
 	server: string;
 	success: boolean;
 	latencyMs?: number;
+	sessionId?: string;
 	error?: string;
 }
 interface UnifiedItem {
@@ -85,6 +86,7 @@ interface UnifiedItem {
 interface ServerTools {
 	server: string;
 	tools: { name: string; description?: string }[];
+	sessionId?: string | null;
 }
 interface ToolSchema {
 	server: string;
@@ -113,6 +115,19 @@ describe("HTTP MCP server end-to-end", () => {
 			expect(results[0]?.server).toBe("remote");
 			expect(results[0]?.success).toBe(true);
 			expect(results[0]?.latencyMs).toBeGreaterThan(0);
+			expect(results[0]?.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+		},
+		{ timeout: TIMEOUT },
+	);
+
+	test(
+		"exports the Streamable HTTP session id",
+		async () => {
+			const results = await runAndParse<Array<{ server: string; sessionId: string | null }>>("session");
+			expect(results).toBeInstanceOf(Array);
+			expect(results.length).toBe(1);
+			expect(results[0]?.server).toBe("remote");
+			expect(results[0]?.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 		},
 		{ timeout: TIMEOUT },
 	);
@@ -162,6 +177,7 @@ describe("HTTP MCP server end-to-end", () => {
 			expect(result.tools.length).toBeGreaterThan(0);
 			const toolNames = result.tools.map((t) => t.name);
 			expect(toolNames).toContain("echo");
+			expect(result.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 		},
 		{ timeout: TIMEOUT },
 	);

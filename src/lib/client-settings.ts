@@ -66,7 +66,7 @@ export function execPattern(server: string, tool?: string, client: Client = "cla
 }
 
 /** Read-only mcpx commands that are safe to allow broadly */
-const READ_ONLY_COMMANDS = ["search", "info", "servers", "ping", "resource", "prompt", "task", "index"];
+const READ_ONLY_COMMANDS = ["search", "info", "servers", "ping", "session", "resource", "prompt", "task", "index"];
 
 /** Generate patterns for all read-only mcpx commands */
 export function readOnlyPatterns(client: Client = "claude"): string[] {

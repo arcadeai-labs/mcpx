@@ -5,6 +5,7 @@ import { ServerManager } from "../../src/client/manager.ts";
 import { McpOAuthProvider } from "../../src/client/oauth.ts";
 import * as sseModule from "../../src/client/sse.ts";
 import type { AuthFile, HttpServerConfig, ServersFile } from "../../src/config/schemas.ts";
+import { startMockHttpServer } from "../helpers/mock-http.ts";
 
 const MOCK_SERVER = join(import.meta.dir, "../fixtures/mock-server.ts");
 
@@ -123,6 +124,12 @@ describe("ServerManager", () => {
 	test("getServerNames returns configured servers", () => {
 		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {} });
 		expect(manager.getServerNames()).toEqual(["mock"]);
+	});
+
+	test("getSessionId is undefined for stdio servers", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {} });
+		expect(await manager.getSessionId("mock")).toBeUndefined();
+		expect((await manager.getServerInfo("mock")).sessionId).toBeUndefined();
 	});
 
 	test("timeout fires on slow operations", async () => {
@@ -358,5 +365,43 @@ describe("ServerManager with HTTP servers", () => {
 
 		sseSpy.mockRestore();
 		refreshSpy.mockRestore();
+	});
+
+	test("reads Streamable HTTP session id from the live transport", async () => {
+		const http = await startMockHttpServer();
+		try {
+			manager = new ServerManager({
+				servers: { mcpServers: { remote: { url: http.url } } },
+				configDir: "/tmp",
+				auth: {},
+				timeout: 10_000,
+				maxRetries: 0,
+			});
+			const sessionId = await manager.getSessionId("remote");
+			expect(sessionId).toBeDefined();
+			expect(sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+			expect((await manager.getServerInfo("remote")).sessionId).toBe(sessionId);
+		} finally {
+			http.stop();
+		}
+	});
+
+	test("session id is still readable when the transport is wrapped for tracing", async () => {
+		const http = await startMockHttpServer();
+		try {
+			manager = new ServerManager({
+				servers: { mcpServers: { remote: { url: http.url } } },
+				configDir: "/tmp",
+				auth: {},
+				timeout: 10_000,
+				maxRetries: 0,
+				verbose: true,
+			});
+			const sessionId = await manager.getSessionId("remote");
+			expect(sessionId).toBeDefined();
+			expect(typeof sessionId).toBe("string");
+		} finally {
+			http.stop();
+		}
 	});
 });
