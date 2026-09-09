@@ -137,6 +137,24 @@ describe("mcpx add", () => {
 		expect(servers.mcpServers["v2-server"].mcp).toBe("v2");
 	});
 
+	test("does not persist a global --mcp-version onto the server config", async () => {
+		const { exitCode } = await run([
+			"--mcp-version",
+			"v2",
+			"-c",
+			tmpDir,
+			"add",
+			"from-global",
+			"--command",
+			"echo",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(0);
+
+		const servers = await Bun.file(join(tmpDir, "servers.json")).json();
+		expect(servers.mcpServers["from-global"].mcp).toBeUndefined();
+	});
+
 	test("rejects invalid --mcp-version", async () => {
 		const { exitCode, stderr } = await run([
 			"-c",

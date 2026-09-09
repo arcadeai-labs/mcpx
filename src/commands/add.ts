@@ -100,7 +100,7 @@ export function registerAddCommand(program: Command) {
 					(config as { transport: string }).transport = options.transport;
 				}
 
-				const mcpFlag = options.mcpVersion ?? (program.opts().mcpVersion as string | undefined);
+				const mcpFlag = mcpVersionFromAddArgv(process.argv);
 				if (mcpFlag) {
 					try {
 						const mcp = parseMcpVersion(mcpFlag);
@@ -265,4 +265,22 @@ function buildHttpConfig(options: { url?: string; header: string[] }): ServerCon
 	}
 
 	return config as unknown as ServerConfig;
+}
+
+/**
+ * `--mcp-version` exists on both the root program and `add`. Commander stores
+ * the last occurrence on the parent, so `add --mcp-version v2` and
+ * `--mcp-version v2 add` look the same in `program.opts()`. Persist only when
+ * the flag appears after `add` and before a `--` passthrough.
+ */
+export function mcpVersionFromAddArgv(argv: string[]): string | undefined {
+	const addIdx = argv.indexOf("add");
+	if (addIdx === -1) return undefined;
+	for (let i = addIdx + 1; i < argv.length; i++) {
+		const arg = argv[i]!;
+		if (arg === "--") break;
+		if (arg === "--mcp-version") return argv[i + 1];
+		if (arg.startsWith("--mcp-version=")) return arg.slice("--mcp-version=".length);
+	}
+	return undefined;
 }
