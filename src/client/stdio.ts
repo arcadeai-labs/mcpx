@@ -1,4 +1,4 @@
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import type { StdioServerConfig } from "../config/schemas.ts";
 
 export function createStdioTransport(config: StdioServerConfig): StdioClientTransport {

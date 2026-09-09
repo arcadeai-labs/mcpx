@@ -1,5 +1,4 @@
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
+import type { JSONRPCMessage, Transport } from "@modelcontextprotocol/client";
 import { logger } from "../output/logger.ts";
 import { glyph, theme } from "../output/theme.ts";
 

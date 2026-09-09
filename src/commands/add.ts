@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { parseMcpVersion } from "../client/mcp-version.ts";
 import { resolveResourceUrl, tryOAuthIfSupported } from "../client/oauth.ts";
 import { loadRawAuth, loadRawServers, saveServers } from "../config/loader.ts";
 import type { ServerConfig } from "../config/schemas.ts";
@@ -16,6 +17,7 @@ export function registerAddCommand(program: Command) {
 		.option("--url <url>", "server URL (HTTP server)")
 		.option("--header <h>", "header in Key:Value format (repeatable)", collect, [])
 		.option("--transport <type>", 'transport for HTTP servers: "sse" or "streamable-http"')
+		.option("--mcp-version <version>", 'MCP protocol era: "v1", "v2", or "auto"')
 		.option("--allowed-tools <pattern>", "allowed tool pattern (repeatable or comma-separated)", collect, [])
 		.option("--disabled-tools <pattern>", "disabled tool pattern (repeatable or comma-separated)", collect, [])
 		.option("-f, --force", "overwrite if server already exists")
@@ -33,6 +35,7 @@ export function registerAddCommand(program: Command) {
 					url?: string;
 					header: string[];
 					transport?: string;
+					mcpVersion?: string;
 					allowedTools: string[];
 					disabledTools: string[];
 					force?: boolean;
@@ -95,6 +98,21 @@ export function registerAddCommand(program: Command) {
 						process.exit(1);
 					}
 					(config as { transport: string }).transport = options.transport;
+				}
+
+				const mcpFlag = options.mcpVersion ?? (program.opts().mcpVersion as string | undefined);
+				if (mcpFlag) {
+					try {
+						const mcp = parseMcpVersion(mcpFlag);
+						if (!mcp) {
+							console.error('--mcp-version must be "v1", "v2", or "auto"');
+							process.exit(1);
+						}
+						config.mcp = mcp;
+					} catch {
+						console.error('--mcp-version must be "v1", "v2", or "auto"');
+						process.exit(1);
+					}
 				}
 
 				const allowedTools = splitCommaList(options.allowedTools);

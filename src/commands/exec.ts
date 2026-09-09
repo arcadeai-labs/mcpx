@@ -1,4 +1,4 @@
-import { UrlElicitationRequiredError } from "@modelcontextprotocol/sdk/types.js";
+import { UrlElicitationRequiredError } from "@modelcontextprotocol/client";
 import type { Command } from "commander";
 import { handleUrlElicitation } from "../client/elicitation.ts";
 import type { ServerManager } from "../client/manager.ts";

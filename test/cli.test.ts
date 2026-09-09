@@ -37,6 +37,24 @@ describe("mcpx", () => {
 		expect(exitCode).toBe(0);
 	});
 
+	test("--mcp-version is not mistaken for a subcommand", async () => {
+		const proc = Bun.spawn(
+			["bun", "run", "src/cli.ts", "-c", CONFIG, "--mcp-version", "v1", "--json", "ping", "mock"],
+			{
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		const exitCode = await proc.exited;
+		const stdout = await new Response(proc.stdout).text();
+		const stderr = await new Response(proc.stderr).text();
+		expect(stderr).not.toContain("unknown command");
+		expect(exitCode).toBe(0);
+		const results = JSON.parse(stdout) as Array<{ server: string; success: boolean }>;
+		expect(results[0]?.server).toBe("mock");
+		expect(results[0]?.success).toBe(true);
+	});
+
 	test("subcommands are registered", async () => {
 		const proc = Bun.spawn(["bun", "run", "src/cli.ts", "--help"], {
 			stdout: "pipe",
@@ -48,6 +66,7 @@ describe("mcpx", () => {
 		expect(stdout).toContain("search");
 		expect(stdout).toContain("exec");
 		expect(stdout).toContain("auth");
+		expect(stdout).toContain("--mcp-version");
 		expect(stdout).toContain("session");
 	});
 });

@@ -96,6 +96,43 @@ describe("validateServersFile", () => {
 		}
 	});
 
+	test("accepts mcp v1/v2/auto and normalizes case", async () => {
+		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
+		try {
+			await Bun.write(
+				join(tmpDir, "servers.json"),
+				JSON.stringify({
+					mcpServers: {
+						legacy: { command: "echo", mcp: "V1" },
+						modern: { url: "https://example.com/mcp", mcp: "v2" },
+						probe: { command: "echo", mcp: "auto" },
+					},
+				}),
+			);
+			const config = await loadConfig({ configFlag: tmpDir });
+			expect(config.servers.mcpServers.legacy?.mcp).toBe("v1");
+			expect(config.servers.mcpServers.modern?.mcp).toBe("v2");
+			expect(config.servers.mcpServers.probe?.mcp).toBe("auto");
+		} finally {
+			await rm(tmpDir, { recursive: true });
+		}
+	});
+
+	test("rejects invalid mcp value", async () => {
+		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
+		try {
+			await Bun.write(
+				join(tmpDir, "servers.json"),
+				JSON.stringify({
+					mcpServers: { bad: { command: "echo", mcp: "v9" } },
+				}),
+			);
+			await expect(loadConfig({ configFlag: tmpDir })).rejects.toThrow("invalid mcp");
+		} finally {
+			await rm(tmpDir, { recursive: true });
+		}
+	});
+
 	test("rejects invalid transport value", async () => {
 		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
 		try {

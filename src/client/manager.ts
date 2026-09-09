@@ -1,20 +1,15 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { ResponseMessage } from "@modelcontextprotocol/sdk/shared/responseMessage.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type {
-	CallToolResult,
-	CancelTaskResult,
-	GetTaskResult,
-	ListTasksResult,
-	LoggingLevel,
-	ServerCapabilities,
-} from "@modelcontextprotocol/sdk/types.js";
 import {
-	CallToolResultSchema,
-	ElicitRequestSchema,
-	LoggingMessageNotificationSchema,
+	type CallToolResult,
+	type CancelTaskResult,
+	Client,
+	type GetTaskResult,
+	type ListTasksResult,
+	type LoggingLevel,
+	type ServerCapabilities,
+	type Task,
+	type Transport,
 	UrlElicitationRequiredError,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/client";
 import picomatch from "picomatch";
 import pkg from "../../package.json";
 import type { AuthFile, Prompt, Resource, ServerConfig, ServersFile, Tool } from "../config/schemas.ts";
@@ -23,6 +18,7 @@ import { logger } from "../output/logger.ts";
 import { register, unregister } from "../shutdown.ts";
 import { handleElicitation } from "./elicitation.ts";
 import { createHttpTransport } from "./http.ts";
+import { type McpVersion, resolveMcpVersion, versionNegotiationFor } from "./mcp-version.ts";
 import { McpOAuthProvider } from "./oauth.ts";
 import { createSseTransport } from "./sse.ts";
 import { createStdioTransport } from "./stdio.ts";
@@ -48,9 +44,22 @@ export interface ServerInfo {
 	version?: { name: string; version: string };
 	capabilities?: ServerCapabilities;
 	instructions?: string;
+	/** Which MCP era mcpx requested (`v1`, `v2`, or `auto`). */
+	mcp?: McpVersion;
+	/** Protocol revision negotiated with the server, when available. */
+	protocolVersion?: string;
+	/** `legacy` (2025 initialize) or `modern` (2026-07-28+). */
+	protocolEra?: string;
 	/** Streamable HTTP session id, if the transport received one after connect. */
 	sessionId?: string;
 }
+
+/** Messages yielded while waiting on a task-augmented tool call. */
+export type TaskStreamMessage =
+	| { type: "taskCreated"; task: Task }
+	| { type: "taskStatus"; task: Task }
+	| { type: "result"; result: CallToolResult }
+	| { type: "error"; error: Error };
 
 export interface ServerError {
 	server: string;
@@ -69,6 +78,8 @@ export interface ServerManagerOptions {
 	logLevel?: string; // MCP log level, default "warning"
 	json?: boolean; // JSON output mode (for trace formatting)
 	noInteractive?: boolean; // decline elicitation requests
+	/** Default MCP protocol era when a server does not set `mcp`. */
+	mcp?: McpVersion;
 }
 
 export class ServerManager {
@@ -87,6 +98,7 @@ export class ServerManager {
 	private logLevel: string;
 	private json: boolean;
 	private noInteractive: boolean;
+	private mcp: McpVersion;
 
 	constructor(opts: ServerManagerOptions) {
 		this.servers = opts.servers;
@@ -100,7 +112,12 @@ export class ServerManager {
 		this.logLevel = opts.logLevel ?? "warning";
 		this.json = opts.json ?? false;
 		this.noInteractive = opts.noInteractive ?? false;
+		this.mcp = opts.mcp ?? "v1";
 		register(this);
+	}
+
+	private mcpFor(_serverName: string, config: ServerConfig): McpVersion {
+		return resolveMcpVersion({ server: config.mcp, fallback: this.mcp });
 	}
 
 	/** Get or create a connected client for a server */
@@ -142,7 +159,7 @@ export class ServerManager {
 				: rawTransport;
 			this.transports.set(serverName, transport);
 
-			let client = this.createClient();
+			let client = this.createClient(this.mcpFor(serverName, config));
 			try {
 				await this.withTimeout(client.connect(transport), `connect(${serverName})`);
 			} catch (err) {
@@ -168,7 +185,7 @@ export class ServerManager {
 						? wrapTransportWithTrace(rawSseTransport, { json: this.json, serverName })
 						: rawSseTransport;
 					this.transports.set(serverName, sseTransport);
-					client = this.createClient();
+					client = this.createClient(this.mcpFor(serverName, config));
 					await this.withTimeout(client.connect(sseTransport), `connect-sse(${serverName})`);
 				} else {
 					throw err;
@@ -202,12 +219,15 @@ export class ServerManager {
 	}
 
 	/** Create a Client with elicitation capabilities and handler registered */
-	private createClient(): Client {
+	private createClient(mcp: McpVersion): Client {
 		const client = new Client(
 			{ name: pkg.name, version: pkg.version },
-			{ capabilities: { elicitation: { form: {}, url: {} } } },
+			{
+				capabilities: { elicitation: { form: {}, url: {} } },
+				versionNegotiation: versionNegotiationFor(mcp),
+			},
 		);
-		client.setRequestHandler(ElicitRequestSchema, (request) =>
+		client.setRequestHandler("elicitation/create", (request) =>
 			handleElicitation(request, {
 				noInteractive: this.noInteractive,
 				json: this.json,
@@ -218,7 +238,7 @@ export class ServerManager {
 
 	/** Subscribe to server log notifications and set the desired log level */
 	private setupLogging(serverName: string, client: Client): void {
-		client.setNotificationHandler(LoggingMessageNotificationSchema, (notification) => {
+		client.setNotificationHandler("notifications/message", (notification) => {
 			logger.logServerMessage(serverName, notification.params);
 		});
 
@@ -378,10 +398,15 @@ export class ServerManager {
 	/** Get server info (version, capabilities, instructions, session id) */
 	async getServerInfo(serverName: string): Promise<ServerInfo> {
 		const client = await this.getClient(serverName);
+		const config = this.servers.mcpServers[serverName];
+		const mcp = config ? this.mcpFor(serverName, config) : this.mcp;
 		return {
 			version: client.getServerVersion() as ServerInfo["version"],
 			capabilities: client.getServerCapabilities(),
 			instructions: client.getInstructions(),
+			mcp,
+			protocolVersion: client.getNegotiatedProtocolVersion(),
+			protocolEra: client.getProtocolEra(),
 			sessionId: this.readSessionId(serverName),
 		};
 	}
@@ -462,46 +487,121 @@ export class ServerManager {
 		return !!tools?.call;
 	}
 
-	/** Call a tool with task-augmented streaming, yielding status updates */
+	/** Call a tool with task-augmented execution, yielding status updates */
 	async *callToolStream(
 		serverName: string,
 		toolName: string,
 		args: Record<string, unknown> = {},
 		taskOptions?: { ttl?: number; signal?: AbortSignal },
-	): AsyncGenerator<ResponseMessage<CallToolResult>> {
+	): AsyncGenerator<TaskStreamMessage> {
 		const client = await this.getClient(serverName);
-		const stream = client.experimental.tasks.callToolStream({ name: toolName, arguments: args }, CallToolResultSchema, {
-			task: { ttl: taskOptions?.ttl },
-			signal: taskOptions?.signal,
-		});
-		yield* stream;
+		const created = await this.taskRequest<unknown>(
+			client,
+			"tools/call",
+			{
+				name: toolName,
+				arguments: args,
+				task: { ttl: taskOptions?.ttl },
+			},
+			`callToolStream(${serverName}/${toolName})`,
+		);
+
+		if (!isCreateTaskResult(created)) {
+			yield { type: "result", result: created as CallToolResult };
+			return;
+		}
+
+		const createdTask = created.task;
+		yield { type: "taskCreated", task: createdTask };
+
+		let taskId = createdTask.taskId;
+		while (true) {
+			if (taskOptions?.signal?.aborted) {
+				yield { type: "error", error: new Error("Task cancelled") };
+				return;
+			}
+			const status = await this.taskRequest<GetTaskResult>(
+				client,
+				"tasks/get",
+				{ taskId },
+				`getTask(${serverName}/${taskId})`,
+			);
+			yield { type: "taskStatus", task: status };
+			taskId = status.taskId;
+			if (status.status === "completed" || status.status === "input_required") {
+				// `input_required` delivers queued elicitation/sampling via tasks/result
+				// and blocks until the task is terminal (same as the v1 SDK stream).
+				const result = await this.taskRequest<CallToolResult>(
+					client,
+					"tasks/result",
+					{ taskId },
+					`getTaskResult(${serverName}/${taskId})`,
+				);
+				yield { type: "result", result };
+				return;
+			}
+			if (status.status === "failed" || status.status === "cancelled") {
+				yield {
+					type: "error",
+					error: new Error(status.statusMessage ?? `Task ${status.status}`),
+				};
+				return;
+			}
+			const waitMs = status.pollInterval ?? 100;
+			await new Promise((resolve) => setTimeout(resolve, waitMs));
+		}
+	}
+
+	/**
+	 * Issue a JSON-RPC request whose method may be outside the v2 client's
+	 * default RequestMethod union (e.g. 2025-era `tasks/*`).
+	 */
+	private extensionRequest<T>(client: Client, method: string, params: Record<string, unknown>): Promise<T> {
+		return client.request({ method, params }, PASSTHROUGH_RESULT_SCHEMA) as Promise<T>;
+	}
+
+	/** `extensionRequest` raced against `MCP_TIMEOUT`. */
+	private taskRequest<T>(client: Client, method: string, params: Record<string, unknown>, label: string): Promise<T> {
+		return this.withTimeout(this.extensionRequest<T>(client, method, params), label);
 	}
 
 	/** Get the status of a task */
 	async getTask(serverName: string, taskId: string): Promise<GetTaskResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(client.experimental.tasks.getTask(taskId), `getTask(${serverName}/${taskId})`);
+		return this.taskRequest<GetTaskResult>(client, "tasks/get", { taskId }, `getTask(${serverName}/${taskId})`);
 	}
 
 	/** Retrieve the result of a completed task */
 	async getTaskResult(serverName: string, taskId: string): Promise<CallToolResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(
-			client.experimental.tasks.getTaskResult(taskId, CallToolResultSchema),
+		return this.taskRequest<CallToolResult>(
+			client,
+			"tasks/result",
+			{ taskId },
 			`getTaskResult(${serverName}/${taskId})`,
-		) as Promise<CallToolResult>;
+		);
 	}
 
 	/** List tasks on a server */
 	async listTasks(serverName: string, cursor?: string): Promise<ListTasksResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(client.experimental.tasks.listTasks(cursor), `listTasks(${serverName})`);
+		return this.taskRequest<ListTasksResult>(
+			client,
+			"tasks/list",
+			cursor ? { cursor } : {},
+			`listTasks(${serverName})`,
+		);
 	}
 
 	/** Cancel a running task */
 	async cancelTask(serverName: string, taskId: string): Promise<CancelTaskResult> {
 		const client = await this.getClient(serverName);
-		return this.withTimeout(client.experimental.tasks.cancelTask(taskId), `cancelTask(${serverName}/${taskId})`);
+		return this.taskRequest<CancelTaskResult>(
+			client,
+			"tasks/cancel",
+			{ taskId },
+			`cancelTask(${serverName}/${taskId})`,
+		);
 	}
 
 	/** Get all server names */
@@ -544,3 +644,20 @@ function filterTools(tools: Tool[], allowedTools?: string[], disabledTools?: str
 
 	return filtered;
 }
+
+function isCreateTaskResult(value: unknown): value is { task: Task } {
+	if (typeof value !== "object" || value === null || !("task" in value)) return false;
+	const task = (value as { task: unknown }).task;
+	return typeof task === "object" && task !== null && "taskId" in task;
+}
+
+/** Standard Schema that accepts any JSON-RPC result (used for 2025-era `tasks/*`). */
+const PASSTHROUGH_RESULT_SCHEMA = {
+	"~standard": {
+		version: 1 as const,
+		vendor: "mcpx",
+		validate(value: unknown) {
+			return { value };
+		},
+	},
+};

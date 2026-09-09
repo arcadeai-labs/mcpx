@@ -109,6 +109,9 @@ export interface ServerOverview {
 	version?: { name: string; version: string };
 	capabilities?: Record<string, unknown>;
 	instructions?: string;
+	mcp?: string;
+	protocolVersion?: string;
+	protocolEra?: string;
 	sessionId?: string;
 	tools: Tool[];
 	resourceCount: number;
@@ -125,6 +128,9 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 			version: overview.version ?? null,
 			capabilities: overview.capabilities ?? null,
 			instructions: overview.instructions ?? null,
+			mcp: overview.mcp ?? null,
+			protocolVersion: overview.protocolVersion ?? null,
+			protocolEra: overview.protocolEra ?? null,
 			sessionId: overview.sessionId ?? null,
 			tools: overview.tools.map((t) => ({ name: t.name, description: t.description ?? "" })),
 			resourceCount: overview.resourceCount,
@@ -148,6 +154,16 @@ export function formatServerOverview(overview: ServerOverview, options: FormatOp
 			}
 			lines.push(headerLine);
 			lines.push(underline(headerVisible));
+
+			if (overview.mcp || overview.protocolVersion || overview.protocolEra) {
+				lines.push("");
+				const mcpLabel = overview.mcp ? `mcp ${overview.mcp}` : undefined;
+				const proto = overview.protocolVersion
+					? `${overview.protocolVersion}${overview.protocolEra ? ` (${overview.protocolEra})` : ""}`
+					: overview.protocolEra;
+				const bits = [mcpLabel, proto].filter(Boolean);
+				lines.push(theme.muted(bits.join(" · ")));
+			}
 
 			if (overview.sessionId) {
 				lines.push("");

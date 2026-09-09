@@ -2,11 +2,14 @@ import type {
 	OAuthClientInformation,
 	OAuthClientInformationMixed,
 	OAuthTokens,
-} from "@modelcontextprotocol/sdk/shared/auth.js";
-import type { Prompt, Resource, Tool } from "@modelcontextprotocol/sdk/types.js";
+	Prompt,
+	Resource,
+	Tool,
+} from "@modelcontextprotocol/client";
+import { type McpVersion, parseMcpVersion } from "../client/mcp-version.ts";
 
 // Re-export SDK types we use throughout the codebase
-export type { OAuthClientInformation, OAuthClientInformationMixed, OAuthTokens, Prompt, Resource, Tool };
+export type { McpVersion, OAuthClientInformation, OAuthClientInformationMixed, OAuthTokens, Prompt, Resource, Tool };
 
 // --- Server config (our format, not MCP spec) ---
 
@@ -18,6 +21,8 @@ export interface StdioServerConfig {
 	cwd?: string;
 	allowedTools?: string[];
 	disabledTools?: string[];
+	/** MCP protocol era for this server (`v1`, `v2`, or `auto`). Overrides CLI/env. */
+	mcp?: McpVersion;
 }
 
 /** HTTP MCP server config */
@@ -27,6 +32,8 @@ export interface HttpServerConfig {
 	transport?: "sse" | "streamable-http";
 	allowedTools?: string[];
 	disabledTools?: string[];
+	/** MCP protocol era for this server (`v1`, `v2`, or `auto`). Overrides CLI/env. */
+	mcp?: McpVersion;
 }
 
 export type ServerConfig = StdioServerConfig | HttpServerConfig;
@@ -115,6 +122,20 @@ export function validateServersFile(data: unknown): ServersFile {
 		if (hasUrl && c.transport !== undefined) {
 			if (c.transport !== "sse" && c.transport !== "streamable-http") {
 				throw new Error(`Server "${name}" has invalid transport "${c.transport}" — must be "sse" or "streamable-http"`);
+			}
+		}
+		if (c.mcp !== undefined) {
+			if (typeof c.mcp !== "string") {
+				throw new Error(`Server "${name}" has invalid mcp value — must be "v1", "v2", or "auto"`);
+			}
+			try {
+				const parsed = parseMcpVersion(c.mcp);
+				if (!parsed) {
+					throw new Error("empty");
+				}
+				c.mcp = parsed;
+			} catch {
+				throw new Error(`Server "${name}" has invalid mcp "${c.mcp}" — must be "v1", "v2", or "auto"`);
 			}
 		}
 	}

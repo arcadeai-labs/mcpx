@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from "bun:test";
-import type { ElicitRequest, ElicitRequestURLParams } from "@modelcontextprotocol/sdk/types.js";
+import type { ElicitRequest, ElicitRequestURLParams } from "@modelcontextprotocol/client";
 import { type ElicitationOptions, handleElicitation, handleUrlElicitation } from "../../src/client/elicitation.ts";
 
 function makeFormRequest(overrides: Record<string, unknown> = {}): ElicitRequest {

@@ -52,6 +52,10 @@ program
 	.name("mcpx")
 	.description("A command-line interface for MCP servers. curl for MCP.")
 	.version(pkg.version)
+	.option(
+		"--mcp-version <version>",
+		"MCP protocol era: v1 (legacy initialize), v2 (2026-07-28), or auto (probe v2, fall back to v1)",
+	)
 	.option("-c, --config <path>", "config directory path")
 	.option("-d, --with-descriptions", "include tool descriptions in output")
 	.option("-j, --json", "force JSON output")
@@ -103,7 +107,15 @@ const cliArgs = process.argv.slice(2);
 let firstCommand: string | undefined;
 for (let i = 0; i < cliArgs.length; i++) {
 	const a = cliArgs[i]!;
-	if (a === "-c" || a === "--config" || a === "-l" || a === "--log-level" || a === "-F" || a === "--format") {
+	if (
+		a === "-c" ||
+		a === "--config" ||
+		a === "-l" ||
+		a === "--log-level" ||
+		a === "-F" ||
+		a === "--format" ||
+		a === "--mcp-version"
+	) {
 		i++; // skip the option's value argument
 		continue;
 	}

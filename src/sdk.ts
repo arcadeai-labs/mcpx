@@ -4,7 +4,7 @@ import type {
 	GetTaskResult,
 	ListTasksResult,
 	ToolAnnotations,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/client";
 import type {
 	PromptWithServer,
 	ResourceWithServer,
@@ -20,6 +20,7 @@ import type {
 	AuthFile,
 	Config,
 	HttpServerConfig,
+	McpVersion,
 	Prompt,
 	Resource,
 	SearchIndex,
@@ -44,6 +45,7 @@ export type {
 	GetTaskResult,
 	HttpServerConfig,
 	ListTasksResult,
+	McpVersion,
 	Prompt,
 	PromptWithServer,
 	Resource,
@@ -192,6 +194,13 @@ export interface McpxClientOptions {
 	/** Enable verbose/trace logging. Default: false */
 	verbose?: boolean;
 	/**
+	 * MCP protocol era to negotiate via the official SDK v2 client.
+	 * `v1` (default) uses the 2025 initialize handshake; `v2` pins 2026-07-28;
+	 * `auto` probes v2 and falls back to v1. Per-server `mcp` in servers.json
+	 * overrides this.
+	 */
+	mcp?: McpVersion;
+	/**
 	 * Which tools require human approval before exec(). Default: "none".
 	 * A preset string, a custom predicate, or an array of either (OR-combined).
 	 */
@@ -262,6 +271,7 @@ export class McpxClient {
 			verbose: this.options.verbose,
 			timeout: this.options.timeout,
 			maxRetries: this.options.maxRetries,
+			mcp: this.options.mcp,
 			logLevel: "emergency", // suppress server log messages from writing to stderr
 			noInteractive: true, // agents can't fill elicitation forms
 		};

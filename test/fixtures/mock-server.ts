@@ -184,6 +184,24 @@ function handleMessage(line: string) {
 					execution: { taskSupport: "optional" },
 				},
 				{
+					name: "ask_echo",
+					description: "Task-augmented echo that pauses in input_required",
+					inputSchema: {
+						type: "object",
+						properties: {
+							message: { type: "string", description: "Message to echo" },
+						},
+						required: ["message"],
+					},
+					execution: { taskSupport: "optional" },
+				},
+				{
+					name: "hang_task",
+					description: "Task-augmented call that never replies (timeout tests)",
+					inputSchema: { type: "object", properties: {} },
+					execution: { taskSupport: "optional" },
+				},
+				{
 					name: "confirm_action",
 					description: "Asks for user confirmation via elicitation",
 					inputSchema: {
@@ -237,13 +255,18 @@ function handleMessage(line: string) {
 			level: "warning",
 			data: `tool ${params.name} is deprecated`,
 		});
-		if (params.name === "slow_echo" && params.task) {
+		if (params.name === "hang_task" && params.task) {
+			// Never reply — used to assert MCP_TIMEOUT on the task stream.
+			return;
+		}
+		if ((params.name === "slow_echo" || params.name === "ask_echo") && params.task) {
 			// Task-augmented call: return CreateTaskResult
 			const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 			const now = new Date().toISOString();
+			const status = params.name === "ask_echo" ? "input_required" : "working";
 			tasks.set(taskId, {
 				taskId,
-				status: "working",
+				status,
 				message: String(params.arguments?.message ?? ""),
 				pollCount: 0,
 				createdAt: now,
@@ -251,7 +274,7 @@ function handleMessage(line: string) {
 			respond(msg.id, {
 				task: {
 					taskId,
-					status: "working",
+					status,
 					statusMessage: "Processing your request...",
 					createdAt: now,
 					lastUpdatedAt: now,
@@ -259,7 +282,7 @@ function handleMessage(line: string) {
 					pollInterval: 100,
 				},
 			});
-		} else if (params.name === "echo" || params.name === "slow_echo") {
+		} else if (params.name === "echo" || params.name === "slow_echo" || params.name === "ask_echo") {
 			respond(msg.id, {
 				content: [{ type: "text", text: String(params.arguments?.message ?? "") }],
 			});
@@ -364,6 +387,8 @@ function handleMessage(line: string) {
 		});
 	} else if (msg.method === "ping") {
 		respond(msg.id, {});
+	} else if (msg.id !== undefined && msg.method) {
+		respondError(msg.id, -32601, `Method not found: ${msg.method}`);
 	}
 }
 

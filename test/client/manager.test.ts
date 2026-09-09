@@ -154,6 +154,74 @@ describe("ServerManager", () => {
 		const tools = await manager.listTools("mock");
 		expect(tools.length).toBeGreaterThan(0);
 	});
+
+	test("connects with mcp v1 (legacy initialize)", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, mcp: "v1" });
+		const info = await manager.getServerInfo("mock");
+		expect(info.mcp).toBe("v1");
+		expect(info.protocolEra).toBe("legacy");
+		expect(info.capabilities?.tools).toBeDefined();
+	});
+
+	test("connects with mcp auto against a v1 mock server", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, mcp: "auto" });
+		const tools = await manager.listTools("mock");
+		expect(tools.map((t) => t.name)).toContain("echo");
+	});
+
+	test("honors per-server mcp over manager default", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile({ mcp: "v1" }),
+			configDir: "/tmp",
+			auth: {},
+			mcp: "v2",
+		});
+		const info = await manager.getServerInfo("mock");
+		expect(info.mcp).toBe("v1");
+		expect(info.protocolEra).toBe("legacy");
+	});
+
+	test("mcp v2 pin fails against a legacy-only mock server", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile(),
+			configDir: "/tmp",
+			auth: {},
+			mcp: "v2",
+			maxRetries: 0,
+			timeout: 5_000,
+		});
+		await expect(manager.listTools("mock")).rejects.toThrow();
+	});
+
+	test("callToolStream finishes when a task is input_required", async () => {
+		manager = new ServerManager({ servers: makeServersFile(), configDir: "/tmp", auth: {}, timeout: 5_000 });
+		const messages: Array<{ type: string }> = [];
+		for await (const message of manager.callToolStream("mock", "ask_echo", { message: "need input" })) {
+			messages.push(message);
+			if (message.type === "result" || message.type === "error") break;
+		}
+		expect(messages.some((m) => m.type === "taskCreated")).toBe(true);
+		expect(messages.some((m) => m.type === "taskStatus")).toBe(true);
+		const result = messages.find((m) => m.type === "result") as
+			| { type: "result"; result: { content: { text: string }[] } }
+			| undefined;
+		expect(result?.result.content[0]?.text).toBe("need input");
+	});
+
+	test("callToolStream times out when the task RPC never replies", async () => {
+		manager = new ServerManager({
+			servers: makeServersFile(),
+			configDir: "/tmp",
+			auth: {},
+			timeout: 400,
+			maxRetries: 0,
+		});
+		await expect(async () => {
+			for await (const _ of manager.callToolStream("mock", "hang_task")) {
+				// hang_task never replies
+			}
+		}).toThrow(/timed out/);
+	});
 });
 
 describe("ServerManager with HTTP servers", () => {

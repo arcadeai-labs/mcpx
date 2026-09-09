@@ -5,7 +5,7 @@ import type {
 	ElicitRequestURLParams,
 	ElicitResult,
 	PrimitiveSchemaDefinition,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/client";
 import ansis from "ansis";
 import { logger } from "../output/logger.ts";
 import { validateElicitationResponse } from "../validation/schema.ts";
