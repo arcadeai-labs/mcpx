@@ -1,6 +1,6 @@
 {
 	"name": "@arcadeai/mcpx",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "A command-line interface for MCP servers. curl for MCP.",
 	"type": "module",
 	"exports": {
@@ -64,6 +64,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.14",
+		"@modelcontextprotocol/server": "^2.0.0",
 		"@types/bun": "latest",
 		"typescript": "^6"
 	}
