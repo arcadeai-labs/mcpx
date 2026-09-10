@@ -14,17 +14,21 @@ const mockRefreshAuthorization = mock(() =>
 	}),
 );
 
+const mockAuth = mock(() => Promise.resolve("AUTHORIZED"));
+
 mock.module("../../src/client/oauth-api.ts", () => ({
-	auth: mock(),
+	auth: mockAuth,
 	discoverOAuthServerInfo: mock(),
 	refreshAuthorization: mockRefreshAuthorization,
 }));
 
 import {
 	AuthRequiredError,
+	completeAuthorizationCode,
 	createConnectAuthProvider,
 	isAuthError,
 	McpOAuthProvider,
+	resolveAuthorizationIssuer,
 	startCallbackServer,
 } from "../../src/client/oauth.ts";
 import { logger } from "../../src/output/logger.ts";
@@ -99,6 +103,36 @@ describe("McpOAuthProvider", () => {
 		const provider = makeProvider();
 		await provider.saveCodeVerifier("verifier-123");
 		expect(provider.codeVerifier()).toBe("verifier-123");
+	});
+
+	test("discoveryState in-memory round-trip", async () => {
+		const provider = makeProvider();
+		expect(provider.discoveryState()).toBeUndefined();
+		await provider.saveDiscoveryState({
+			authorizationServerUrl: "https://api.toolexec.ai",
+			authorizationServerMetadata: {
+				issuer: "https://api.toolexec.ai",
+				authorization_endpoint: "https://api.toolexec.ai/oauth/authorize",
+				token_endpoint: "https://api.toolexec.ai/oauth/token",
+				response_types_supported: ["code"],
+			},
+		});
+		expect(provider.discoveryState()?.authorizationServerMetadata?.issuer).toBe("https://api.toolexec.ai");
+	});
+
+	test("invalidateCredentials clears discovery scope", async () => {
+		const provider = makeProvider();
+		await provider.saveDiscoveryState({
+			authorizationServerUrl: "https://api.toolexec.ai",
+			authorizationServerMetadata: {
+				issuer: "https://api.toolexec.ai",
+				authorization_endpoint: "https://api.toolexec.ai/oauth/authorize",
+				token_endpoint: "https://api.toolexec.ai/oauth/token",
+				response_types_supported: ["code"],
+			},
+		});
+		await provider.invalidateCredentials("discovery");
+		expect(provider.discoveryState()).toBeUndefined();
 	});
 
 	test("codeVerifier() throws when unset", () => {
@@ -391,8 +425,34 @@ describe("startCallbackServer", () => {
 		const html = await response.text();
 		expect(html).toContain("Authenticated");
 
-		const code = await result.authCodePromise;
-		expect(code).toBe("test-code-123");
+		const callback = await result.authCodePromise;
+		expect(callback.code).toBe("test-code-123");
+		expect(callback.iss).toBeUndefined();
+	});
+
+	test("captures RFC 9207 iss from the callback query", async () => {
+		const result = startCallbackServer();
+		server = result.server;
+
+		const url = `http://127.0.0.1:${server.port}/callback?code=test-code-123&iss=https%3A%2F%2Fapi.toolexec.ai`;
+		const response = await fetch(url);
+		expect(response.status).toBe(200);
+
+		const callback = await result.authCodePromise;
+		expect(callback.code).toBe("test-code-123");
+		expect(callback.iss).toBe("https://api.toolexec.ai");
+	});
+
+	test("treats empty iss as absent", async () => {
+		const result = startCallbackServer();
+		server = result.server;
+
+		const url = `http://127.0.0.1:${server.port}/callback?code=test-code-123&iss=`;
+		await fetch(url);
+
+		const callback = await result.authCodePromise;
+		expect(callback.code).toBe("test-code-123");
+		expect(callback.iss).toBeUndefined();
 	});
 
 	test("rejects on /callback?error=access_denied", async () => {
@@ -416,5 +476,104 @@ describe("startCallbackServer", () => {
 
 		const response = await fetch(`http://127.0.0.1:${server.port}/other`);
 		expect(response.status).toBe(404);
+	});
+});
+
+describe("resolveAuthorizationIssuer", () => {
+	test("uses the callback iss when present", () => {
+		expect(resolveAuthorizationIssuer("https://evil.example", "https://api.toolexec.ai")).toBe("https://evil.example");
+	});
+
+	test("falls back to the recorded issuer when callback iss is undefined", () => {
+		expect(resolveAuthorizationIssuer(undefined, "https://api.toolexec.ai")).toBe("https://api.toolexec.ai");
+	});
+
+	test("treats an empty callback iss as absent", () => {
+		expect(resolveAuthorizationIssuer("", "https://api.toolexec.ai")).toBe("https://api.toolexec.ai");
+	});
+
+	test("returns undefined when neither issuer is available", () => {
+		expect(resolveAuthorizationIssuer(undefined, undefined)).toBeUndefined();
+	});
+});
+
+describe("completeAuthorizationCode", () => {
+	test("passes a present callback iss through to auth()", async () => {
+		const provider = makeProvider();
+		await provider.saveDiscoveryState({
+			authorizationServerUrl: "https://api.toolexec.ai",
+			authorizationServerMetadata: {
+				issuer: "https://api.toolexec.ai",
+				authorization_endpoint: "https://api.toolexec.ai/oauth/authorize",
+				token_endpoint: "https://api.toolexec.ai/oauth/token",
+				response_types_supported: ["code"],
+			},
+		});
+		mockAuth.mockClear();
+		mockAuth.mockResolvedValueOnce("AUTHORIZED");
+
+		await completeAuthorizationCode(provider, "https://api.toolexec.ai/mcp", {
+			code: "auth-code",
+			iss: "https://api.toolexec.ai",
+		});
+
+		expect(mockAuth).toHaveBeenCalledTimes(1);
+		expect(mockAuth).toHaveBeenCalledWith(provider, {
+			serverUrl: "https://api.toolexec.ai/mcp",
+			authorizationCode: "auth-code",
+			iss: "https://api.toolexec.ai",
+		});
+	});
+
+	test("does not treat a missing callback iss as a mismatch", async () => {
+		const provider = makeProvider();
+		await provider.saveDiscoveryState({
+			authorizationServerUrl: "https://api.toolexec.ai",
+			authorizationServerMetadata: {
+				issuer: "https://api.toolexec.ai",
+				authorization_endpoint: "https://api.toolexec.ai/oauth/authorize",
+				token_endpoint: "https://api.toolexec.ai/oauth/token",
+				response_types_supported: ["code"],
+				authorization_response_iss_parameter_supported: true,
+			},
+		});
+		mockAuth.mockClear();
+		mockAuth.mockResolvedValueOnce("AUTHORIZED");
+
+		await completeAuthorizationCode(provider, "https://api.toolexec.ai/mcp", {
+			code: "auth-code",
+		});
+
+		expect(mockAuth).toHaveBeenCalledWith(provider, {
+			serverUrl: "https://api.toolexec.ai/mcp",
+			authorizationCode: "auth-code",
+			iss: "https://api.toolexec.ai",
+		});
+	});
+
+	test("forwards a present-but-different callback iss so the SDK can reject it", async () => {
+		const provider = makeProvider();
+		await provider.saveDiscoveryState({
+			authorizationServerUrl: "https://api.toolexec.ai",
+			authorizationServerMetadata: {
+				issuer: "https://api.toolexec.ai",
+				authorization_endpoint: "https://api.toolexec.ai/oauth/authorize",
+				token_endpoint: "https://api.toolexec.ai/oauth/token",
+				response_types_supported: ["code"],
+			},
+		});
+		mockAuth.mockClear();
+		mockAuth.mockResolvedValueOnce("AUTHORIZED");
+
+		await completeAuthorizationCode(provider, "https://api.toolexec.ai/mcp", {
+			code: "auth-code",
+			iss: "https://evil.example",
+		});
+
+		expect(mockAuth).toHaveBeenCalledWith(provider, {
+			serverUrl: "https://api.toolexec.ai/mcp",
+			authorizationCode: "auth-code",
+			iss: "https://evil.example",
+		});
 	});
 });
