@@ -3,6 +3,7 @@ import {
 	type OAuthClientInformationMixed,
 	type OAuthClientMetadata,
 	type OAuthClientProvider,
+	type OAuthDiscoveryState,
 	type OAuthTokens,
 	UnauthorizedError,
 } from "@modelcontextprotocol/client";
@@ -40,6 +41,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
 	private configDir: string;
 	auth: AuthFile;
 	private _codeVerifier?: string;
+	private _discoveryState?: OAuthDiscoveryState;
 	private _callbackPort = 0;
 
 	constructor(opts: { serverName: string; configDir: string; auth: AuthFile }) {
@@ -123,13 +125,27 @@ export class McpOAuthProvider implements OAuthClientProvider {
 		return this._codeVerifier;
 	}
 
+	async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
+		this._discoveryState = state;
+	}
+
+	discoveryState(): OAuthDiscoveryState | undefined {
+		return this._discoveryState;
+	}
+
 	async invalidateCredentials(scope: "all" | "client" | "tokens" | "verifier" | "discovery"): Promise<void> {
 		const entry = this.auth[this.serverName];
-		if (!entry) return;
+		if (!entry) {
+			if (scope === "all" || scope === "verifier") this._codeVerifier = undefined;
+			if (scope === "all" || scope === "discovery") this._discoveryState = undefined;
+			return;
+		}
 
 		switch (scope) {
 			case "all":
 				delete this.auth[this.serverName];
+				this._codeVerifier = undefined;
+				this._discoveryState = undefined;
 				break;
 			case "client":
 				delete entry.client_info;
@@ -148,7 +164,8 @@ export class McpOAuthProvider implements OAuthClientProvider {
 				this._codeVerifier = undefined;
 				return; // No need to persist
 			case "discovery":
-				return; // Nothing to clear locally
+				this._discoveryState = undefined;
+				return; // In-memory only, same as the PKCE verifier
 		}
 
 		await saveAuth(this.configDir, this.auth);
@@ -250,15 +267,22 @@ export function createConnectAuthProvider(opts: {
 	};
 }
 
+/** Authorization-code callback parameters captured from the redirect query. */
+export type OAuthCallbackParams = {
+	code: string;
+	/** RFC 9207 `iss` from the authorization response, if the server sent one. */
+	iss?: string;
+};
+
 /** Start a local callback server to receive the OAuth authorization code */
 export function startCallbackServer(): {
 	server: ReturnType<typeof Bun.serve>;
-	authCodePromise: Promise<string>;
+	authCodePromise: Promise<OAuthCallbackParams>;
 } {
-	let resolveCode: (code: string) => void;
+	let resolveCode: (params: OAuthCallbackParams) => void;
 	let rejectCode: (err: Error) => void;
 
-	const authCodePromise = new Promise<string>((resolve, reject) => {
+	const authCodePromise = new Promise<OAuthCallbackParams>((resolve, reject) => {
 		resolveCode = resolve;
 		rejectCode = reject;
 	});
@@ -289,7 +313,9 @@ export function startCallbackServer(): {
 				});
 			}
 
-			resolveCode?.(code);
+			// Empty `iss` is treated as absent — a missing issuer is not a mismatch.
+			const iss = url.searchParams.get("iss") || undefined;
+			resolveCode?.({ code, iss });
 			return new Response("<html><body><h1>Authenticated!</h1><p>You can close this window.</p></body></html>", {
 				headers: { "Content-Type": "text/html" },
 			});
@@ -297,6 +323,36 @@ export function startCallbackServer(): {
 	});
 
 	return { server, authCodePromise };
+}
+
+/**
+ * Resolve the `iss` value to hand to the SDK for RFC 9207 validation.
+ *
+ * A present callback `iss` is authoritative — the SDK rejects a mismatch.
+ * An omitted `iss` is not a mismatch: fall back to the issuer recorded at
+ * redirect time so servers that advertise
+ * `authorization_response_iss_parameter_supported` without sending `iss`
+ * (e.g. ToolExec) still complete the code exchange.
+ */
+export function resolveAuthorizationIssuer(
+	callbackIss: string | undefined,
+	recordedIssuer: string | undefined,
+): string | undefined {
+	return callbackIss || recordedIssuer;
+}
+
+/** Exchange an authorization code, treating a missing callback `iss` as absent rather than wrong. */
+export async function completeAuthorizationCode(
+	provider: McpOAuthProvider,
+	serverUrl: string,
+	callback: OAuthCallbackParams,
+): Promise<void> {
+	const recordedIssuer = provider.discoveryState()?.authorizationServerMetadata?.issuer;
+	const iss = resolveAuthorizationIssuer(callback.iss, recordedIssuer);
+	if (callback.iss === undefined && recordedIssuer) {
+		logger.debug(`Authorization callback omitted iss; using discovered issuer ${recordedIssuer}`);
+	}
+	await auth(provider, { serverUrl, authorizationCode: callback.code, iss });
 }
 
 /** Resolve the canonical resource URL for an HTTP MCP server.
@@ -367,8 +423,8 @@ export async function runOAuthFlow(serverUrl: string, provider: McpOAuthProvider
 
 		const result = await auth(provider, { serverUrl });
 		if (result === "REDIRECT") {
-			const code = await authCodePromise;
-			await auth(provider, { serverUrl, authorizationCode: code });
+			const callback = await authCodePromise;
+			await completeAuthorizationCode(provider, serverUrl, callback);
 		}
 	} finally {
 		server.stop();
