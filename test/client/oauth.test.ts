@@ -20,7 +20,13 @@ mock.module("../../src/client/oauth-api.ts", () => ({
 	refreshAuthorization: mockRefreshAuthorization,
 }));
 
-import { McpOAuthProvider, startCallbackServer } from "../../src/client/oauth.ts";
+import {
+	AuthRequiredError,
+	createConnectAuthProvider,
+	isAuthError,
+	McpOAuthProvider,
+	startCallbackServer,
+} from "../../src/client/oauth.ts";
 import { logger } from "../../src/output/logger.ts";
 
 function makeProvider(auth: AuthFile = {}, serverName = "test-server") {
@@ -171,6 +177,96 @@ describe("McpOAuthProvider", () => {
 		const provider = makeProvider();
 		provider.setCallbackPort(12345);
 		expect(provider.redirectUrl).toBe("http://127.0.0.1:12345/callback");
+	});
+
+	test("redirectToAuthorization throws when no callback server is running", async () => {
+		const provider = makeProvider();
+		await expect(provider.redirectToAuthorization(new URL("https://example.com/authorize"))).rejects.toThrow(
+			AuthRequiredError,
+		);
+	});
+});
+
+describe("createConnectAuthProvider", () => {
+	test("returns undefined when auth is not complete", () => {
+		const provider = makeProvider();
+		expect(
+			createConnectAuthProvider({ provider, serverName: "test-server", serverUrl: "http://example.com" }),
+		).toBeUndefined();
+	});
+
+	test("token() returns the stored access token", async () => {
+		const auth: AuthFile = {
+			"test-server": {
+				tokens: { access_token: "live-token", token_type: "Bearer" },
+				complete: true,
+			},
+		};
+		const provider = makeProvider(auth);
+		const connect = createConnectAuthProvider({
+			provider,
+			serverName: "test-server",
+			serverUrl: "http://example.com",
+		});
+		expect(await connect?.token()).toBe("live-token");
+	});
+
+	test("onUnauthorized throws AuthRequiredError when there is no refresh token", async () => {
+		const auth: AuthFile = {
+			"test-server": {
+				tokens: { access_token: "expired-token", token_type: "Bearer" },
+				complete: true,
+			},
+		};
+		const provider = makeProvider(auth);
+		const connect = createConnectAuthProvider({
+			provider,
+			serverName: "test-server",
+			serverUrl: "http://example.com",
+		});
+		await expect(connect?.onUnauthorized?.({} as never)).rejects.toThrow(AuthRequiredError);
+	});
+
+	test("onUnauthorized refreshes when a refresh token is available", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-connect-"));
+		try {
+			const auth: AuthFile = {
+				"test-server": {
+					tokens: {
+						access_token: "old-token",
+						token_type: "Bearer",
+						refresh_token: "my-refresh-token",
+					},
+					client_info: { client_id: "my-client", client_secret: "my-secret" },
+					complete: true,
+				},
+			};
+			const provider = new McpOAuthProvider({
+				serverName: "test-server",
+				configDir: dir,
+				auth,
+			});
+			const connect = createConnectAuthProvider({
+				provider,
+				serverName: "test-server",
+				serverUrl: "http://example.com",
+			});
+			mockRefreshAuthorization.mockClear();
+			await connect?.onUnauthorized?.({} as never);
+			expect(mockRefreshAuthorization).toHaveBeenCalledTimes(1);
+			expect(provider.tokens()?.access_token).toBe("refreshed-access-token");
+		} finally {
+			await rm(dir, { recursive: true });
+		}
+	});
+});
+
+describe("isAuthError", () => {
+	test("matches AuthRequiredError and its cause chain", () => {
+		const authErr = new AuthRequiredError("srv");
+		expect(isAuthError(authErr)).toBe(true);
+		expect(isAuthError(new Error("wrapped", { cause: authErr }))).toBe(true);
+		expect(isAuthError(new Error("other"))).toBe(false);
 	});
 });
 

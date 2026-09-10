@@ -293,7 +293,7 @@ Stores OAuth tokens for HTTP MCP servers. You don't edit this directly — manag
 }
 ```
 
-Tokens are automatically refreshed when expired (if a refresh token is available). Any command that connects to a server (`exec`, `info`, `search`, listing) will refresh tokens transparently. `mcpx auth <server> --status` shows current token state and TTL.
+Tokens are automatically refreshed when expired (if a refresh token is available). Any command that connects to a server (`exec`, `info`, `search`, listing) will refresh tokens transparently. If refresh is impossible or the server still rejects the token, the command fails immediately with a prompt to run `mcpx auth <server>` instead of reopening the browser. `mcpx auth <server> --status` shows current token state and TTL.
 
 ### `search.json` — Semantic Search Index (managed automatically)
 
@@ -405,6 +405,7 @@ The OAuth flow:
 4. Exchanges the authorization code for tokens
 5. Stores tokens in `auth.json`
 6. Automatically refreshes tokens before they expire on any subsequent command
+7. If a stored token is rejected and cannot be refreshed, commands fail immediately with a prompt to run `mcpx auth <server>` — they do not reopen the browser in a loop
 
 ## Search
 

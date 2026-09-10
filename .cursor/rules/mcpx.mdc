@@ -76,7 +76,7 @@ mcpx exec filesystem read_file -f params.json
 
 ## Troubleshooting
 
-- **"Not authenticated" / 401 error** → Run `mcpx auth <server>` to start the OAuth flow
+- **"Not authenticated" / 401 error** → Run `mcpx auth <server>` to start the OAuth flow. Expired tokens do not reopen the browser in a loop.
 - **Exec timeout** → Use `-v` to see where it stalls; set `MCP_TIMEOUT=<seconds>` to increase the timeout (default: 1800)
 - **Search returns no results** → Try `mcpx search -k "*keyword*"` for glob matching, or `mcpx index` to rebuild the search index
 - **Missing or stale tools** → Run `mcpx index` to rebuild; `mcpx` (the default list) and `mcpx index -i` also auto-refresh the index for any server whose tools have changed
