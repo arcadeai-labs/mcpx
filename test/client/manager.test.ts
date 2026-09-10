@@ -509,13 +509,13 @@ describe("ServerManager with HTTP servers", () => {
 		let wellKnownRequests = 0;
 		const server = Bun.serve({
 			port: 0,
-			fetch(req) {
+			fetch(req: Request): Response {
 				const url = new URL(req.url);
 				if (url.pathname.includes(".well-known")) {
 					wellKnownRequests++;
 					return Response.json({
-						resource: `http://127.0.0.1:${server.port}/mcp`,
-						authorization_servers: [`http://127.0.0.1:${server.port}`],
+						resource: `${url.origin}/mcp`,
+						authorization_servers: [url.origin],
 					});
 				}
 				mcpRequests++;
@@ -523,7 +523,7 @@ describe("ServerManager with HTTP servers", () => {
 					status: 401,
 					headers: {
 						"Content-Type": "application/json",
-						"WWW-Authenticate": `Bearer error="invalid_token", error_description="No authorization provided", resource_metadata="http://127.0.0.1:${server.port}/.well-known/oauth-protected-resource/mcp"`,
+						"WWW-Authenticate": `Bearer error="invalid_token", error_description="No authorization provided", resource_metadata="${url.origin}/.well-known/oauth-protected-resource/mcp"`,
 					},
 				});
 			},
