@@ -1,8 +1,10 @@
-import type {
-	OAuthClientInformationMixed,
-	OAuthClientMetadata,
-	OAuthClientProvider,
-	OAuthTokens,
+import {
+	type AuthProvider,
+	type OAuthClientInformationMixed,
+	type OAuthClientMetadata,
+	type OAuthClientProvider,
+	type OAuthTokens,
+	UnauthorizedError,
 } from "@modelcontextprotocol/client";
 import { saveAuth } from "../config/loader.ts";
 import type { AuthFile } from "../config/schemas.ts";
@@ -10,6 +12,28 @@ import type { FormatOptions } from "../output/formatter.ts";
 import { logger } from "../output/logger.ts";
 import { openBrowser } from "./browser.ts";
 import { auth, discoverOAuthServerInfo, refreshAuthorization } from "./oauth-api.ts";
+
+/** Thrown when an HTTP server needs an interactive `mcpx auth` instead of a silent retry. */
+export class AuthRequiredError extends Error {
+	readonly serverName: string;
+
+	constructor(serverName: string, message?: string) {
+		super(message ?? authRequiredMessage(serverName));
+		this.name = "AuthRequiredError";
+		this.serverName = serverName;
+	}
+}
+
+export function isAuthError(err: unknown): boolean {
+	if (err instanceof AuthRequiredError) return true;
+	if (err instanceof UnauthorizedError) return true;
+	if (err instanceof Error && err.cause !== undefined) return isAuthError(err.cause);
+	return false;
+}
+
+export function authRequiredMessage(serverName: string): string {
+	return `Not authenticated with "${serverName}". Run: mcpx auth ${serverName}`;
+}
 
 export class McpOAuthProvider implements OAuthClientProvider {
 	private serverName: string;
@@ -77,6 +101,12 @@ export class McpOAuthProvider implements OAuthClientProvider {
 	}
 
 	async redirectToAuthorization(url: URL): Promise<void> {
+		// During connect there is no callback server (`mcpx auth` sets the port).
+		// The SDK's OAuth adapter would otherwise start a new authorize URL on
+		// every 401, with redirect_uri=http://127.0.0.1:0/callback, in a loop.
+		if (this._callbackPort === 0) {
+			throw new AuthRequiredError(this.serverName);
+		}
 		const urlStr = url.toString();
 		logger.info(urlStr);
 		await openBrowser(urlStr);
@@ -153,18 +183,20 @@ export class McpOAuthProvider implements OAuthClientProvider {
 		return !!tokens?.refresh_token;
 	}
 
-	async refreshIfNeeded(serverUrl: string): Promise<void> {
-		if (!this.isExpired()) return;
-
+	async refreshTokens(serverUrl: string): Promise<void> {
 		if (!this.hasRefreshToken()) {
-			throw new Error(
+			throw new AuthRequiredError(
+				this.serverName,
 				`Token expired for "${this.serverName}" and no refresh token available. Run: mcpx auth ${this.serverName}`,
 			);
 		}
 
 		const clientInfo = this.clientInformation();
 		if (!clientInfo) {
-			throw new Error(`No client information for "${this.serverName}". Run: mcpx auth ${this.serverName}`);
+			throw new AuthRequiredError(
+				this.serverName,
+				`No client information for "${this.serverName}". Run: mcpx auth ${this.serverName}`,
+			);
 		}
 
 		const tokens = await refreshAuthorization(serverUrl, {
@@ -176,6 +208,46 @@ export class McpOAuthProvider implements OAuthClientProvider {
 
 		logger.info(`Token refreshed for "${this.serverName}"`);
 	}
+
+	async refreshIfNeeded(serverUrl: string): Promise<void> {
+		if (!this.isExpired()) return;
+		await this.refreshTokens(serverUrl);
+	}
+}
+
+/**
+ * Auth provider for ordinary connect/list/exec — sends the stored bearer token
+ * and refreshes once on 401. Never starts a browser OAuth flow.
+ *
+ * Passing {@link McpOAuthProvider} itself makes the SDK adapt it with
+ * `handleOAuthUnauthorized`, which rediscovers the AS and calls
+ * `redirectToAuthorization` on every 401 (no callback server is running).
+ */
+export function createConnectAuthProvider(opts: {
+	provider: McpOAuthProvider;
+	serverName: string;
+	serverUrl: string;
+}): AuthProvider | undefined {
+	const { provider, serverName, serverUrl } = opts;
+	if (!provider.isComplete()) return undefined;
+
+	return {
+		token: async () => provider.tokens()?.access_token,
+		async onUnauthorized() {
+			if (!provider.hasRefreshToken()) {
+				throw new AuthRequiredError(serverName);
+			}
+			try {
+				await provider.refreshTokens(serverUrl);
+			} catch (err) {
+				if (err instanceof AuthRequiredError) throw err;
+				throw new AuthRequiredError(
+					serverName,
+					`Token refresh failed for "${serverName}". Run: mcpx auth ${serverName}`,
+				);
+			}
+		},
+	};
 }
 
 /** Start a local callback server to receive the OAuth authorization code */

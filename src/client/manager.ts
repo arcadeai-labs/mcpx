@@ -12,14 +12,22 @@ import {
 } from "@modelcontextprotocol/client";
 import picomatch from "picomatch";
 import pkg from "../../package.json";
-import type { AuthFile, Prompt, Resource, ServerConfig, ServersFile, Tool } from "../config/schemas.ts";
+import type {
+	AuthFile,
+	HttpServerConfig,
+	Prompt,
+	Resource,
+	ServerConfig,
+	ServersFile,
+	Tool,
+} from "../config/schemas.ts";
 import { isHttpServer, isStdioServer } from "../config/schemas.ts";
 import { logger } from "../output/logger.ts";
 import { register, unregister } from "../shutdown.ts";
 import { handleElicitation } from "./elicitation.ts";
 import { createHttpTransport } from "./http.ts";
 import { type McpVersion, resolveMcpVersion, versionNegotiationFor } from "./mcp-version.ts";
-import { McpOAuthProvider } from "./oauth.ts";
+import { AuthRequiredError, createConnectAuthProvider, isAuthError, McpOAuthProvider } from "./oauth.ts";
 import { createSseTransport } from "./sse.ts";
 import { createStdioTransport } from "./stdio.ts";
 import { wrapTransportWithTrace } from "./trace.ts";
@@ -143,12 +151,14 @@ export class ServerManager {
 				if (hasAuthEntry) {
 					const provider = this.getOrCreateOAuthProvider(serverName);
 					if (!provider.isComplete()) {
-						throw new Error(`Not authenticated with "${serverName}". Run: mcpx auth ${serverName}`);
+						throw new AuthRequiredError(serverName);
 					}
 					try {
 						await provider.refreshIfNeeded(config.url);
-					} catch {
-						// If refresh fails, continue — the transport will send the existing token
+					} catch (err) {
+						// Missing refresh token / client info: fail now, don't start a browser loop.
+						if (err instanceof AuthRequiredError) throw err;
+						// Transient refresh failure: continue — the transport will send the existing token
 					}
 				}
 			}
@@ -163,6 +173,9 @@ export class ServerManager {
 			try {
 				await this.withTimeout(client.connect(transport), `connect(${serverName})`);
 			} catch (err) {
+				if (isAuthError(err)) {
+					throw err instanceof AuthRequiredError ? err : new AuthRequiredError(serverName);
+				}
 				// Auto-fallback: if no explicit transport was set on an HTTP server,
 				// retry with the legacy SSE transport
 				if (isHttpServer(config) && !config.transport) {
@@ -174,10 +187,9 @@ export class ServerManager {
 					} catch {
 						// ignore close errors
 					}
-					const provider = this.getOrCreateOAuthProvider(serverName);
 					const rawSseTransport = createSseTransport({
 						config,
-						authProvider: provider.isComplete() ? provider : undefined,
+						authProvider: this.connectAuthProvider(serverName, config),
 						verbose: this.verbose,
 						showSecrets: this.showSecrets,
 					});
@@ -186,7 +198,14 @@ export class ServerManager {
 						: rawSseTransport;
 					this.transports.set(serverName, sseTransport);
 					client = this.createClient(this.mcpFor(serverName, config));
-					await this.withTimeout(client.connect(sseTransport), `connect-sse(${serverName})`);
+					try {
+						await this.withTimeout(client.connect(sseTransport), `connect-sse(${serverName})`);
+					} catch (sseErr) {
+						if (isAuthError(sseErr)) {
+							throw sseErr instanceof AuthRequiredError ? sseErr : new AuthRequiredError(serverName);
+						}
+						throw sseErr;
+					}
 				} else {
 					throw err;
 				}
@@ -216,6 +235,14 @@ export class ServerManager {
 			this.oauthProviders.set(serverName, provider);
 		}
 		return provider;
+	}
+
+	private connectAuthProvider(serverName: string, config: HttpServerConfig) {
+		return createConnectAuthProvider({
+			provider: this.getOrCreateOAuthProvider(serverName),
+			serverName,
+			serverUrl: config.url,
+		});
 	}
 
 	/** Create a Client with elicitation capabilities and handler registered */
@@ -255,12 +282,10 @@ export class ServerManager {
 			return createStdioTransport(config);
 		}
 		if (isHttpServer(config)) {
-			// Only pass the OAuth provider if the server already has tokens.
-			// Without tokens, passing the provider causes the SDK transport to
-			// auto-trigger the browser OAuth flow on 401, which fails because
-			// there's no callback server running. Users must run `mcpx auth <server>` first.
-			const provider = this.getOrCreateOAuthProvider(serverName);
-			const authProvider = provider.isComplete() ? provider : undefined;
+			// Send the stored bearer token, but do not pass McpOAuthProvider itself.
+			// The SDK adapts OAuthClientProvider to start a browser authorize URL on
+			// every 401, which loops when tokens are expired and no callback is listening.
+			const authProvider = this.connectAuthProvider(serverName, config);
 
 			if (config.transport === "sse") {
 				return createSseTransport({
@@ -332,6 +357,7 @@ export class ServerManager {
 				lastError = err instanceof Error ? err : new Error(String(err));
 				// Don't retry auth challenges — the user needs to authorize first
 				if (err instanceof UrlElicitationRequiredError) throw lastError;
+				if (isAuthError(err)) throw lastError;
 				if (attempt < this.maxRetries && serverName) {
 					// Clear cached client so next attempt reconnects fresh
 					try {

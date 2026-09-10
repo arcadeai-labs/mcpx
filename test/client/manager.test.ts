@@ -472,4 +472,93 @@ describe("ServerManager with HTTP servers", () => {
 			http.stop();
 		}
 	});
+
+	test("expired token without refresh token fails before connecting", async () => {
+		const auth: AuthFile = {
+			"http-server": {
+				tokens: { access_token: "expired-token", token_type: "Bearer" },
+				expires_at: new Date(Date.now() - 60000).toISOString(),
+				client_info: { client_id: "client-123" },
+				complete: true,
+			},
+		};
+
+		const httpSpy = spyOn(httpModule, "createHttpTransport");
+		const sseSpy = spyOn(sseModule, "createSseTransport");
+
+		manager = new ServerManager({
+			servers: { mcpServers: { "http-server": { url: "http://localhost:19999/mcp" } } },
+			configDir: "/tmp",
+			auth,
+			timeout: 2000,
+			maxRetries: 3,
+		});
+
+		try {
+			await expect(manager.getClient("http-server")).rejects.toThrow(/no refresh token available/);
+			expect(httpSpy).not.toHaveBeenCalled();
+			expect(sseSpy).not.toHaveBeenCalled();
+		} finally {
+			httpSpy.mockRestore();
+			sseSpy.mockRestore();
+		}
+	});
+
+	test("rejected OAuth token does not re-auth or retry in a loop", async () => {
+		let mcpRequests = 0;
+		let wellKnownRequests = 0;
+		const server = Bun.serve({
+			port: 0,
+			fetch(req) {
+				const url = new URL(req.url);
+				if (url.pathname.includes(".well-known")) {
+					wellKnownRequests++;
+					return Response.json({
+						resource: `http://127.0.0.1:${server.port}/mcp`,
+						authorization_servers: [`http://127.0.0.1:${server.port}`],
+					});
+				}
+				mcpRequests++;
+				return new Response(JSON.stringify({ error: "invalid_token" }), {
+					status: 401,
+					headers: {
+						"Content-Type": "application/json",
+						"WWW-Authenticate": `Bearer error="invalid_token", error_description="No authorization provided", resource_metadata="http://127.0.0.1:${server.port}/.well-known/oauth-protected-resource/mcp"`,
+					},
+				});
+			},
+		});
+
+		const redirectSpy = spyOn(McpOAuthProvider.prototype, "redirectToAuthorization");
+		const sseSpy = spyOn(sseModule, "createSseTransport");
+
+		manager = new ServerManager({
+			servers: { mcpServers: { "company-docs": { url: `http://127.0.0.1:${server.port}/mcp` } } },
+			configDir: "/tmp",
+			auth: {
+				"company-docs": {
+					tokens: { access_token: "stale-token", token_type: "Bearer" },
+					expires_at: new Date(Date.now() + 600_000).toISOString(),
+					client_info: { client_id: "client-123" },
+					complete: true,
+				},
+			},
+			timeout: 5_000,
+			maxRetries: 3,
+		});
+
+		try {
+			await expect(manager.listTools("company-docs")).rejects.toThrow(/mcpx auth company-docs/);
+			expect(redirectSpy).not.toHaveBeenCalled();
+			expect(sseSpy).not.toHaveBeenCalled();
+			expect(wellKnownRequests).toBe(0);
+			// One connect attempt (plus at most a single onUnauthorized retry), not maxRetries+SSE loops
+			expect(mcpRequests).toBeGreaterThan(0);
+			expect(mcpRequests).toBeLessThanOrEqual(4);
+		} finally {
+			redirectSpy.mockRestore();
+			sseSpy.mockRestore();
+			server.stop(true);
+		}
+	});
 });

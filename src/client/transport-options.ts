@@ -1,18 +1,20 @@
-import type { OAuthClientProvider } from "@modelcontextprotocol/client";
+import type { AuthProvider, OAuthClientProvider } from "@modelcontextprotocol/client";
 import pkg from "../../package.json";
 import type { HttpServerConfig } from "../config/schemas.ts";
 import { createDebugFetch, type FetchLike } from "./debug-fetch.ts";
 
+export type TransportAuthProvider = AuthProvider | OAuthClientProvider;
+
 export interface TransportDeps {
 	config: HttpServerConfig;
-	authProvider?: OAuthClientProvider;
+	authProvider?: TransportAuthProvider;
 	verbose?: boolean;
 	showSecrets?: boolean;
 }
 
 /** Build shared transport init options (auth, headers, User-Agent, debug fetch) */
 export function buildTransportInit(deps: TransportDeps): {
-	authProvider?: OAuthClientProvider;
+	authProvider?: TransportAuthProvider;
 	requestInit: RequestInit;
 	fetch?: FetchLike;
 } {
