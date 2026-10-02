@@ -19,8 +19,9 @@ if (hasFlag("--no-color") || hasFlagOr(["--json", "-j"])) {
 	}
 }
 
-if (hasFlag("--force-color")) {
-	if (!process.env.FORCE_COLOR || process.env.FORCE_COLOR === "") {
-		process.env.FORCE_COLOR = "1";
-	}
+if (hasFlag("--force-color") && !hasFlag("--no-color") && !hasFlagOr(["--json", "-j"])) {
+	// An explicit force flag overrides inherited environment defaults. ansis
+	// reads these values at import time, so both variables must agree here.
+	process.env.FORCE_COLOR = "1";
+	delete process.env.NO_COLOR;
 }

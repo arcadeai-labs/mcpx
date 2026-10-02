@@ -1,4 +1,4 @@
-import ansis, { bold, cyan, dim, green, magenta, red, yellow } from "ansis";
+import { Ansis } from "ansis";
 import { useColor } from "./tty.ts";
 
 /**
@@ -11,6 +11,12 @@ import { useColor } from "./tty.ts";
  * ansis usage elsewhere is governed by the env vars early-env.ts sets before
  * ansis loads.
  */
+
+// Use an always-enabled palette and gate it exclusively through useColor().
+// This keeps explicit --force-color reliable even when a parent process set
+// NO_COLOR before ansis was imported.
+const ansis = new Ansis(1);
+const { bold, cyan, dim, green, magenta, red, yellow } = ansis;
 
 const ESC_URL_OPEN = "\x1b[34m\x1b[4m";
 const ESC_URL_CLOSE = "\x1b[24m\x1b[39m";

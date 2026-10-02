@@ -96,6 +96,7 @@ mcpx search -n 5 "manage pull requests"
 | `mcpx remove <name>`                   | Remove an MCP server from your config                  |
 | `mcpx ping`                            | Check connectivity to all configured servers           |
 | `mcpx ping <server> [server2...]`      | Check connectivity to specific server(s)               |
+| `mcpx grade [server]`                  | Grade server quality against the 100-point rubric       |
 | `mcpx session`                         | Print Streamable HTTP session ids for all servers      |
 | `mcpx session <server> [server2...]`   | Print Streamable HTTP session id(s) for specific servers |
 | `mcpx skill install --claude`          | Install the mcpx skill for Claude Code                 |
@@ -377,6 +378,41 @@ const client = new McpxClient({ mcp: "v2" });
 ```
 
 `mcpx info <server>` reports the requested `mcp` value plus the negotiated `protocolVersion` and `protocolEra`.
+
+## Server quality checks
+
+Grade a configured MCP server across security, protocol readiness, tool quality, and surface size:
+
+```bash
+mcpx grade github
+mcpx grade github --json
+mcpx grade github --expect github.com --min-score 80
+mcpx grade github --rubric ./my-rubric.json
+mcpx grade github --no-probe
+```
+
+Interactive output includes a color-coded ASCII letter grade, compact overall and per-category pie charts,
+progress bars, detailed rule evidence, and prioritized improvements. Use `--json` (or `--format json`) for a stable
+machine-readable report with `schemaVersion`, score, grade, category totals, status summary, and every rule result.
+
+The default rubric is [`rubric/mcp-quality.json`](rubric/mcp-quality.json). It is the single source of truth for
+rule weights and grade bands; custom rubrics may change weights or disable rules, but enabled weights must total
+100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use
+`--no-probe` to skip them.
+
+For HTTP servers, the report also runs MCP Debugger-style wire diagnostics: malformed JSON-RPC and protocol
+headers, Origin rejection, session termination, response envelopes and content types, reserved `_meta`, error and
+notification behavior, OAuth challenge parsing, protected-resource metadata, authorization-server discovery,
+PKCE, registration, grants, token authentication methods, and synthetic invalid-token rejection. The invalid-token
+probe can create an expected security-log event. `--no-probe` disables tool calls but not these non-mutating
+protocol and authorization probes.
+
+The checks are inspired by the [ToolBench methodology](https://toolbench.arcade.dev/methodology),
+[Smithery scoring guidance](https://github.com/AgentWorkforce/relaycast/blob/main/.claude/skills/optimizing-smithery-score/SKILL.md),
+[MCP Debugger](https://mcpdebugger.dev/about) and its
+[example report](https://mcpdebugger.dev/results/3K9iOLV1AVfFeMLZuwrpd8XeVqm), the
+[official MCP conformance suite](https://github.com/modelcontextprotocol/conformance), and the
+[MCP tool specification](https://modelcontextprotocol.io/specification/draft/server/tools).
 
 ## OAuth Flow
 
