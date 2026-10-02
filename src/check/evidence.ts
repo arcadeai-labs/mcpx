@@ -34,7 +34,9 @@ export async function collectEvidence(
 	const tools = settledValue(toolsResult, "tools", capabilityErrors);
 	const resources = settledValue(resourcesResult, "resources", capabilityErrors);
 	const prompts = settledValue(promptsResult, "prompts", capabilityErrors);
-	const http = isHttpServer(serverConfig) ? await collectHttpEvidence(serverConfig) : undefined;
+	const http = isHttpServer(serverConfig)
+		? await collectHttpEvidence(serverConfig, config.auth[serverName]?.tokens.access_token)
+		: undefined;
 	const probes = options.probesEnabled ? await runErrorProbes(manager, serverName, tools, options.maxProbes ?? 3) : [];
 
 	return {
@@ -63,35 +65,102 @@ function settledValue<T>(
 	return [];
 }
 
-async function collectHttpEvidence(config: HttpServerConfig): Promise<HttpEvidence> {
+async function collectHttpEvidence(config: HttpServerConfig, accessToken?: string): Promise<HttpEvidence> {
 	const evidence: HttpEvidence = {
 		url: config.url,
 		transport: config.transport ?? "auto",
 	};
-	const [unauthenticated, origin, oauth] = await Promise.all([
-		probeHttp(config.url),
-		probeHttp(config.url, "https://attacker.invalid"),
+	const [unauthenticated, origin, invalidToken, discovered] = await Promise.all([
+		postJsonRpc(config.url, initializeRequest()),
+		postJsonRpc(config.url, initializeRequest(), { origin: "https://attacker.invalid" }),
+		postJsonRpc(config.url, initializeRequest(), { authorization: "Bearer mcpx-invalid-token-probe" }),
 		discoverOAuthServerInfo(config.url).catch(() => undefined),
 	]);
 	evidence.unauthenticatedStatus = unauthenticated?.status;
-	evidence.wwwAuthenticate = unauthenticated?.wwwAuthenticate;
+	evidence.wwwAuthenticate = unauthenticated?.headers["www-authenticate"];
+	evidence.challenge = parseWwwAuthenticate(evidence.wwwAuthenticate);
 	evidence.originStatus = origin?.status;
+	evidence.invalidTokenStatus = invalidToken?.status;
 
-	if (oauth?.authorizationServerMetadata || oauth?.resourceMetadata) {
-		const authorization = oauth.authorizationServerMetadata as Record<string, unknown> | undefined;
+	const resourceMetadataUrl = evidence.challenge?.params.resource_metadata ?? protectedResourceMetadataUrl(config.url);
+	const resourceResponse = await getJson(resourceMetadataUrl);
+	const resourceMetadata = asObject(resourceResponse?.body);
+	const authorizationServerUrls = stringArray(resourceMetadata?.authorization_servers);
+	const authorizationServer =
+		authorizationServerUrls?.[0] ?? (discovered?.authorizationServerMetadata?.issuer as string | undefined);
+	const rfc8414 = authorizationServer
+		? await getJson(wellKnownUrl(authorizationServer, "oauth-authorization-server"))
+		: undefined;
+	const oidc = authorizationServer
+		? await getJson(wellKnownUrl(authorizationServer, "openid-configuration"))
+		: undefined;
+	const authorization =
+		asObject(rfc8414?.body) ??
+		asObject(oidc?.body) ??
+		(discovered?.authorizationServerMetadata as Record<string, unknown> | undefined);
+
+	if (resourceMetadata || authorization || discovered?.resourceMetadata) {
 		evidence.oauth = {
-			resource: oauth.resourceMetadata?.resource,
-			scopesSupported: stringArray(authorization?.scopes_supported),
+			resource: (resourceMetadata?.resource as string | undefined) ?? discovered?.resourceMetadata?.resource,
+			resourceMetadataUrl,
+			resourceMetadata,
+			resourceMetadataStatus: resourceResponse?.status,
+			authorizationServerUrls,
+			scopesSupported: stringArray(resourceMetadata?.scopes_supported) ?? stringArray(authorization?.scopes_supported),
+			rfc8414Status: rfc8414?.status,
+			oidcStatus: oidc?.status,
+			rfc8414Metadata: asObject(rfc8414?.body),
+			oidcMetadata: asObject(oidc?.body),
+			authorizationServerMetadata: authorization,
 			codeChallengeMethodsSupported: stringArray(authorization?.code_challenge_methods_supported),
 		};
 	}
+
+	const authenticatedHeaders = accessToken ? { authorization: `Bearer ${accessToken}` } : {};
+	const initialized = await postJsonRpc(config.url, initializeRequest(), authenticatedHeaders);
+	const sessionId = initialized?.headers["mcp-session-id"];
+	const requestHeaders = {
+		...authenticatedHeaders,
+		...(sessionId ? { "mcp-session-id": sessionId } : {}),
+	};
+	if (initialized && initialized.status >= 200 && initialized.status < 300) {
+		await postJsonRpc(config.url, { jsonrpc: "2.0", method: "notifications/initialized" }, requestHeaders);
+	}
+	const [invalidJsonRpc, invalidProtocolVersion, jsonRpcResult, reservedMeta, jsonRpcError, notification] =
+		await Promise.all([
+			postJsonRpc(config.url, { jsonrpc: "1.0", id: "invalid", method: "ping" }, requestHeaders),
+			postJsonRpc(
+				config.url,
+				{ jsonrpc: "2.0", id: "bad-version", method: "ping" },
+				{
+					...requestHeaders,
+					"mcp-protocol-version": "invalid-version",
+				},
+			),
+			postJsonRpc(config.url, { jsonrpc: "2.0", id: "result", method: "ping" }, requestHeaders),
+			postJsonRpc(
+				config.url,
+				{ jsonrpc: "2.0", id: "meta", method: "ping", params: { _meta: { "mcpx/check": true } } },
+				requestHeaders,
+			),
+			postJsonRpc(config.url, { jsonrpc: "2.0", id: "error", method: "mcpx/unknown-method" }, requestHeaders),
+			postJsonRpc(config.url, { jsonrpc: "2.0", method: "notifications/initialized" }, requestHeaders),
+		]);
+	evidence.invalidJsonRpc = invalidJsonRpc;
+	evidence.invalidProtocolVersion = invalidProtocolVersion;
+	evidence.jsonRpcResult = jsonRpcResult;
+	evidence.reservedMeta = reservedMeta;
+	evidence.jsonRpcError = jsonRpcError;
+	evidence.notification = notification;
+	if (sessionId) evidence.sessionTermination = await deleteSession(config.url, requestHeaders);
 	return evidence;
 }
 
-async function probeHttp(
+async function postJsonRpc(
 	url: string,
-	origin?: string,
-): Promise<{ status: number; wwwAuthenticate?: string } | undefined> {
+	body: unknown,
+	extraHeaders: Record<string, string> = {},
+): Promise<NonNullable<HttpEvidence["jsonRpcResult"]> | undefined> {
 	try {
 		const response = await fetch(url, {
 			method: "POST",
@@ -100,26 +169,103 @@ async function probeHttp(
 			headers: {
 				"content-type": "application/json",
 				accept: "application/json, text/event-stream",
-				...(origin ? { origin } : {}),
+				...extraHeaders,
 			},
-			body: JSON.stringify({
-				jsonrpc: "2.0",
-				id: "mcpx-quality-check",
-				method: "initialize",
-				params: {
-					protocolVersion: "2025-06-18",
-					capabilities: {},
-					clientInfo: { name: "mcpx-quality-check", version: "1" },
-				},
-			}),
+			body: JSON.stringify(body),
 		});
 		return {
 			status: response.status,
-			wwwAuthenticate: response.headers.get("www-authenticate") ?? undefined,
+			contentType: response.headers.get("content-type") ?? undefined,
+			body: await parseResponseBody(response),
+			headers: Object.fromEntries(response.headers.entries()),
 		};
 	} catch {
 		return undefined;
 	}
+}
+
+async function getJson(url: string): Promise<NonNullable<HttpEvidence["jsonRpcResult"]> | undefined> {
+	try {
+		const response = await fetch(url, {
+			headers: { accept: "application/json" },
+			redirect: "manual",
+			signal: AbortSignal.timeout(10_000),
+		});
+		return {
+			status: response.status,
+			contentType: response.headers.get("content-type") ?? undefined,
+			body: await parseResponseBody(response),
+			headers: Object.fromEntries(response.headers.entries()),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+async function deleteSession(
+	url: string,
+	headers: Record<string, string>,
+): Promise<NonNullable<HttpEvidence["jsonRpcResult"]> | undefined> {
+	try {
+		const response = await fetch(url, { method: "DELETE", headers, signal: AbortSignal.timeout(10_000) });
+		return {
+			status: response.status,
+			contentType: response.headers.get("content-type") ?? undefined,
+			body: await parseResponseBody(response),
+			headers: Object.fromEntries(response.headers.entries()),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+function initializeRequest() {
+	return {
+		jsonrpc: "2.0",
+		id: "mcpx-quality-check",
+		method: "initialize",
+		params: {
+			protocolVersion: "2025-11-25",
+			capabilities: {},
+			clientInfo: { name: "mcpx-quality-check", version: "1" },
+		},
+	};
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
+	const text = await response.text();
+	if (!text) return undefined;
+	const candidate = text
+		.split("\n")
+		.find((line) => line.startsWith("data:"))
+		?.slice(5)
+		.trim();
+	try {
+		return JSON.parse(candidate ?? text);
+	} catch {
+		return text;
+	}
+}
+
+function parseWwwAuthenticate(header: string | undefined): HttpEvidence["challenge"] {
+	if (!header) return undefined;
+	const [scheme, ...rest] = header.trim().split(/\s+/);
+	const params: Record<string, string> = {};
+	for (const match of rest.join(" ").matchAll(/([a-zA-Z_][\w-]*)=(?:"([^"]*)"|([^,\s]+))/g)) {
+		params[match[1]!.toLowerCase()] = match[2] ?? match[3] ?? "";
+	}
+	return { scheme, params };
+}
+
+function protectedResourceMetadataUrl(serverUrl: string): string {
+	const url = new URL(serverUrl);
+	return `${url.origin}/.well-known/oauth-protected-resource${url.pathname === "/" ? "" : url.pathname}`;
+}
+
+function wellKnownUrl(issuer: string, suffix: string): string {
+	const url = new URL(issuer);
+	const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+	return `${url.origin}/.well-known/${suffix}${path}`;
 }
 
 async function runErrorProbes(

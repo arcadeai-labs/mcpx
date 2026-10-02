@@ -13,17 +13,44 @@ export interface ProbeResult {
 	actionable: boolean;
 }
 
+export interface HttpResponseEvidence {
+	status: number;
+	contentType?: string;
+	body?: unknown;
+	headers: Record<string, string>;
+}
+
+export interface OAuthEvidence {
+	resource?: string;
+	resourceMetadataUrl?: string;
+	resourceMetadata?: Record<string, unknown>;
+	resourceMetadataStatus?: number;
+	authorizationServerUrls?: string[];
+	scopesSupported?: string[];
+	rfc8414Status?: number;
+	oidcStatus?: number;
+	rfc8414Metadata?: Record<string, unknown>;
+	oidcMetadata?: Record<string, unknown>;
+	authorizationServerMetadata?: Record<string, unknown>;
+	codeChallengeMethodsSupported?: string[];
+}
+
 export interface HttpEvidence {
 	url: string;
 	transport: "sse" | "streamable-http" | "auto";
 	unauthenticatedStatus?: number;
 	wwwAuthenticate?: string;
 	originStatus?: number;
-	oauth?: {
-		resource?: string;
-		scopesSupported?: string[];
-		codeChallengeMethodsSupported?: string[];
-	};
+	challenge?: { scheme?: string; params: Record<string, string> };
+	oauth?: OAuthEvidence;
+	invalidTokenStatus?: number;
+	invalidJsonRpc?: HttpResponseEvidence;
+	invalidProtocolVersion?: HttpResponseEvidence;
+	sessionTermination?: HttpResponseEvidence;
+	jsonRpcResult?: HttpResponseEvidence;
+	reservedMeta?: HttpResponseEvidence;
+	jsonRpcError?: HttpResponseEvidence;
+	notification?: HttpResponseEvidence;
 }
 
 export interface CheckContext {

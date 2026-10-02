@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"version": 2,
 	"gradeBands": [
 		{ "grade": "A+", "minimum": 90 },
 		{ "grade": "A", "minimum": 80 },
@@ -9,25 +9,118 @@
 		{ "grade": "F", "minimum": 0 }
 	],
 	"rules": [
-		{ "id": "security.https", "category": "security", "name": "HTTPS transport", "weight": 4 },
-		{ "id": "security.authentication", "category": "security", "name": "OAuth 2.0 or public access", "weight": 6 },
-		{ "id": "security.scopes", "category": "security", "name": "OAuth scopes", "weight": 4 },
-		{ "id": "security.domain", "category": "security", "name": "Domain validation", "weight": 3 },
-		{ "id": "security.pkce", "category": "security", "name": "PKCE support", "weight": 3 },
-		{ "id": "protocol.core-conformance", "category": "protocol", "name": "Core MCP conformance", "weight": 8 },
-		{ "id": "protocol.version", "category": "protocol", "name": "Current MCP protocol version", "weight": 5 },
-		{ "id": "protocol.stateless-http", "category": "protocol", "name": "Stateless Streamable HTTP", "weight": 4 },
-		{ "id": "protocol.tool-annotations", "category": "protocol", "name": "Tool behavior annotations", "weight": 4 },
-		{ "id": "protocol.elicitation", "category": "protocol", "name": "Elicitation support", "weight": 2 },
+		{ "id": "security.https", "category": "security", "name": "HTTPS transport", "weight": 1.5 },
+		{ "id": "security.authentication", "category": "security", "name": "OAuth 2.0 or public access", "weight": 1.5 },
+		{ "id": "security.scopes", "category": "security", "name": "OAuth scopes", "weight": 0.5 },
+		{ "id": "security.domain", "category": "security", "name": "Domain validation", "weight": 1 },
+		{ "id": "security.pkce", "category": "security", "name": "PKCE support", "weight": 1 },
+		{
+			"id": "security.unauthorized-status",
+			"category": "security",
+			"name": "Unauthenticated request status",
+			"weight": 0.75
+		},
+		{ "id": "security.www-authenticate", "category": "security", "name": "WWW-Authenticate challenge", "weight": 0.75 },
+		{
+			"id": "security.bearer-challenge",
+			"category": "security",
+			"name": "Bearer authentication scheme",
+			"weight": 0.75
+		},
+		{
+			"id": "security.challenge-resource-metadata",
+			"category": "security",
+			"name": "Challenge resource metadata URL",
+			"weight": 0.75
+		},
+		{ "id": "security.challenge-scope", "category": "security", "name": "Challenge scope guidance", "weight": 0.75 },
+		{
+			"id": "security.prm-discovery",
+			"category": "security",
+			"name": "Protected resource metadata discovery",
+			"weight": 0.75
+		},
+		{ "id": "security.prm-resource", "category": "security", "name": "Protected resource identifier", "weight": 0.75 },
+		{
+			"id": "security.prm-authorization-servers",
+			"category": "security",
+			"name": "Protected resource authorization servers",
+			"weight": 0.75
+		},
+		{ "id": "security.prm-scopes", "category": "security", "name": "Protected resource scopes", "weight": 0.75 },
+		{ "id": "security.rfc8414-discovery", "category": "security", "name": "RFC 8414 discovery", "weight": 0.75 },
+		{ "id": "security.oidc-discovery", "category": "security", "name": "OpenID Connect discovery", "weight": 0.5 },
+		{
+			"id": "security.authorization-discovery",
+			"category": "security",
+			"name": "Authorization server discovery",
+			"weight": 0.75
+		},
+		{ "id": "security.as-issuer", "category": "security", "name": "Authorization server issuer", "weight": 0.75 },
+		{
+			"id": "security.as-endpoints",
+			"category": "security",
+			"name": "Authorization and token endpoints",
+			"weight": 0.75
+		},
+		{
+			"id": "security.as-response-types",
+			"category": "security",
+			"name": "Authorization code response type",
+			"weight": 0.75
+		},
+		{
+			"id": "security.client-registration",
+			"category": "security",
+			"name": "Client registration support",
+			"weight": 0.75
+		},
+		{
+			"id": "security.token-auth-methods",
+			"category": "security",
+			"name": "Token endpoint authentication methods",
+			"weight": 0.75
+		},
+		{ "id": "security.grant-types", "category": "security", "name": "OAuth grant types", "weight": 0.75 },
+		{
+			"id": "security.client-credentials",
+			"category": "security",
+			"name": "Client credentials readiness",
+			"weight": 0.5
+		},
+		{ "id": "security.invalid-token", "category": "security", "name": "Invalid token rejection", "weight": 0.75 },
+		{ "id": "protocol.core-conformance", "category": "protocol", "name": "Core MCP conformance", "weight": 4 },
+		{ "id": "protocol.version", "category": "protocol", "name": "Current MCP protocol version", "weight": 3 },
+		{ "id": "protocol.stateless-http", "category": "protocol", "name": "Stateless Streamable HTTP", "weight": 2 },
+		{ "id": "protocol.tool-annotations", "category": "protocol", "name": "Tool behavior annotations", "weight": 2 },
+		{ "id": "protocol.elicitation", "category": "protocol", "name": "Elicitation support", "weight": 1 },
 		{ "id": "protocol.origin-validation", "category": "protocol", "name": "Origin validation", "weight": 2 },
-		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 6 },
+		{ "id": "protocol.json-rpc-request", "category": "protocol", "name": "JSON-RPC request validation", "weight": 2 },
+		{
+			"id": "protocol.version-header",
+			"category": "protocol",
+			"name": "Protocol version header validation",
+			"weight": 1.5
+		},
+		{ "id": "protocol.session-termination", "category": "protocol", "name": "Session termination", "weight": 2 },
+		{ "id": "protocol.json-rpc-result", "category": "protocol", "name": "JSON-RPC result response", "weight": 1.5 },
+		{ "id": "protocol.post-content-type", "category": "protocol", "name": "POST response content type", "weight": 1 },
+		{ "id": "protocol.reserved-meta", "category": "protocol", "name": "Reserved _meta field acceptance", "weight": 1 },
+		{ "id": "protocol.json-rpc-error", "category": "protocol", "name": "JSON-RPC error response", "weight": 1.5 },
+		{
+			"id": "protocol.notification-response",
+			"category": "protocol",
+			"name": "Notification has no JSON-RPC response",
+			"weight": 0.5
+		},
+		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 5 },
 		{
 			"id": "tool-quality.description-content",
 			"category": "tool-quality",
 			"name": "Actionable description content",
 			"weight": 4
 		},
-		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 6 },
+		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 5 },
 		{
 			"id": "tool-quality.parameter-descriptions",
 			"category": "tool-quality",
@@ -35,7 +128,7 @@
 			"weight": 5
 		},
 		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 3 },
-		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 6 },
+		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 5 },
 		{
 			"id": "tool-quality.documentation-links",
 			"category": "tool-quality",
@@ -56,13 +149,21 @@
 			"name": "Credentials outside tool parameters",
 			"weight": 2
 		},
+		{ "id": "tool-quality.schema-validity", "category": "tool-quality", "name": "Tool schema validity", "weight": 2 },
+		{
+			"id": "tool-quality.annotation-validity",
+			"category": "tool-quality",
+			"name": "Tool annotation validity",
+			"weight": 1
+		},
 		{ "id": "surface.tool-count", "category": "surface", "name": "Focused tool count", "weight": 6 },
 		{
 			"id": "surface.declared-capabilities",
 			"category": "surface",
 			"name": "Declared capability availability",
-			"weight": 2
+			"weight": 1
 		},
+		{ "id": "surface.resource-listing", "category": "surface", "name": "Resource listing", "weight": 1 },
 		{ "id": "surface.server-instructions", "category": "surface", "name": "Server instructions", "weight": 2 }
 	]
 }
