@@ -81,7 +81,7 @@ mcpx exec filesystem read_file -f params.json
 - **Search returns no results** → Try `mcpx search -k "*keyword*"` for glob matching, or `mcpx index` to rebuild the search index
 - **Missing or stale tools** → Run `mcpx index` to rebuild; `mcpx` (the default list) and `mcpx index -i` also auto-refresh the index for any server whose tools have changed
 - **Server won't connect** → Run `mcpx ping <server>` to check connectivity; use `-v` for protocol-level details
-- **Server quality** → Run `mcpx check <server> --json` for a scored security, protocol, and tool-definition report
+- **Server quality** → Run `mcpx grade <server> --json` for a scored security, protocol, and tool-definition report
 - **Auth token expired** → Run `mcpx auth <server> -r` to force a token refresh
 
 ## Long-running tools (Tasks)
@@ -159,7 +159,7 @@ mcpx deauth <server>           # remove stored auth
 | `mcpx deauth <server>`                | Remove stored authentication      |
 | `mcpx ping`                           | Check connectivity to all servers |
 | `mcpx ping <server> [server2...]`     | Check specific server(s)          |
-| `mcpx check [server]`                 | Grade server quality against the configured rubric |
+| `mcpx grade [server]`                 | Grade server quality against the configured rubric |
 | `mcpx session`                        | Print Streamable HTTP session ids |
 | `mcpx session <server> [server2...]`  | Print session id(s) for servers   |
 | `mcpx add <name> --command <cmd>`     | Add a stdio MCP server                              |
@@ -187,9 +187,9 @@ mcpx deauth <server>           # remove stored auth
 | `mcpx check-update`                   | Check for a newer version of mcpx |
 | `mcpx upgrade`                        | Upgrade mcpx to the latest version|
 
-### `check` options
+### `grade` options
 
-`mcpx check [server] [--rubric path] [--expect host] [--no-probe] [--min-score 80]`
+`mcpx grade [server] [--rubric path] [--expect host] [--no-probe] [--min-score 80]`
 grades security, protocol readiness, tool quality, and surface size. The default rubric is
 `rubric/mcp-quality.json`; enabled weights must total 100. Invalid-argument probes only call tools marked
 `readOnlyHint: true`. HTTP checks also probe wire-level JSON-RPC behavior and OAuth metadata; synthetic

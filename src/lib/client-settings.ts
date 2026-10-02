@@ -71,7 +71,7 @@ const READ_ONLY_COMMANDS = [
 	"info",
 	"servers",
 	"ping",
-	"check",
+	"grade",
 	"session",
 	"resource",
 	"prompt",

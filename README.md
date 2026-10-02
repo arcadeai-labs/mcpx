@@ -96,7 +96,7 @@ mcpx search -n 5 "manage pull requests"
 | `mcpx remove <name>`                   | Remove an MCP server from your config                  |
 | `mcpx ping`                            | Check connectivity to all configured servers           |
 | `mcpx ping <server> [server2...]`      | Check connectivity to specific server(s)               |
-| `mcpx check [server]`                  | Grade server quality against the 100-point rubric       |
+| `mcpx grade [server]`                  | Grade server quality against the 100-point rubric       |
 | `mcpx session`                         | Print Streamable HTTP session ids for all servers      |
 | `mcpx session <server> [server2...]`   | Print Streamable HTTP session id(s) for specific servers |
 | `mcpx skill install --claude`          | Install the mcpx skill for Claude Code                 |
@@ -384,11 +384,11 @@ const client = new McpxClient({ mcp: "v2" });
 Grade a configured MCP server across security, protocol readiness, tool quality, and surface size:
 
 ```bash
-mcpx check github
-mcpx check github --json
-mcpx check github --expect github.com --min-score 80
-mcpx check github --rubric ./my-rubric.json
-mcpx check github --no-probe
+mcpx grade github
+mcpx grade github --json
+mcpx grade github --expect github.com --min-score 80
+mcpx grade github --rubric ./my-rubric.json
+mcpx grade github --no-probe
 ```
 
 The default rubric is [`rubric/mcp-quality.json`](rubric/mcp-quality.json). It is the single source of truth for

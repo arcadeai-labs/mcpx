@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { runJson } from "../helpers/run.ts";
 
-describe("mcpx check", () => {
+describe("mcpx grade", () => {
 	test("grades a configured server as JSON", async () => {
-		const proc = runJson("check", "mock", "--no-probe");
+		const proc = runJson("grade", "mock", "--no-probe");
 		const [exitCode, stdout, stderr] = await Promise.all([
 			proc.exited,
 			new Response(proc.stdout).text(),
@@ -19,7 +19,7 @@ describe("mcpx check", () => {
 	});
 
 	test("enforces minimum score", async () => {
-		const proc = runJson("check", "mock", "--no-probe", "--min-score", "100");
+		const proc = runJson("grade", "mock", "--no-probe", "--min-score", "100");
 		expect(await proc.exited).toBe(1);
 	});
 });

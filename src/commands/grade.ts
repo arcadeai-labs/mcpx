@@ -6,16 +6,16 @@ import { runRules } from "../check/runner.ts";
 import { ExitError } from "../shutdown.ts";
 import { withCommand } from "./with-command.ts";
 
-interface CheckOptions {
+interface GradeOptions {
 	rubric?: string;
 	expect?: string;
 	probe: boolean;
 	minScore?: string;
 }
 
-export function registerCheckCommand(program: Command) {
+export function registerGradeCommand(program: Command) {
 	program
-		.command("check [server]")
+		.command("grade [server]")
 		.description("grade the quality of an MCP server")
 		.option("--rubric <path>", "path to a custom quality rubric")
 		.option("--expect <company-or-host>", "expected company or hostname for domain validation")
@@ -25,11 +25,11 @@ export function registerCheckCommand(program: Command) {
 			withCommand(
 				program,
 				{
-					spinnerText: "Checking MCP server quality...",
-					errorLabel: "Quality check failed",
+					spinnerText: "Grading MCP server quality...",
+					errorLabel: "Quality grading failed",
 					contextOverrides: { mcp: "auto", forceMcp: true },
 				},
-				async ({ config, manager, formatOptions, spinner }, server: string | undefined, options: CheckOptions) => {
+				async ({ config, manager, formatOptions, spinner }, server: string | undefined, options: GradeOptions) => {
 					const serverName = selectServer(server, manager.getServerNames());
 					const minimum = parseMinimum(options.minScore);
 					const rubric = await loadRubric(options.rubric);
