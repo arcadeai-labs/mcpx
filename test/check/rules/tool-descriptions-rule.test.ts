@@ -6,8 +6,8 @@ test("tool descriptions score their coverage ratio", async () => {
 	const result = await new ToolDescriptionsRule().computeScore(
 		context({
 			tools: [
-				{ name: "a", description: "A", inputSchema: {} },
-				{ name: "b", inputSchema: {} },
+				{ name: "a", description: "A", inputSchema: { type: "object" } },
+				{ name: "b", inputSchema: { type: "object" } },
 			],
 		}),
 	);

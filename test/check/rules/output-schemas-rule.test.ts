@@ -5,7 +5,7 @@ import { context } from "./helpers.ts";
 test("output schemas scores typed responses", async () => {
 	const result = await new OutputSchemasRule().computeScore(
 		context({
-			tools: [{ name: "status", inputSchema: {}, outputSchema: { type: "object" } }],
+			tools: [{ name: "status", inputSchema: { type: "object" }, outputSchema: { type: "object" } }],
 		}),
 	);
 	expect(result.score).toBe(1);

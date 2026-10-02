@@ -4,7 +4,7 @@ import { context } from "./helpers.ts";
 
 test("tool titles recognizes top-level titles", async () => {
 	const result = await new ToolTitlesRule().computeScore(
-		context({ tools: [{ name: "status", title: "Status", inputSchema: {} }] }),
+		context({ tools: [{ name: "status", title: "Status", inputSchema: { type: "object" } }] }),
 	);
 	expect(result.score).toBe(1);
 });

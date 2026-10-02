@@ -9,7 +9,7 @@ test("description content checks action, usage, and output", async () => {
 				{
 					name: "search",
 					description: "Use when searching records. Returns matching results.",
-					inputSchema: {},
+					inputSchema: { type: "object" },
 				},
 			],
 		}),

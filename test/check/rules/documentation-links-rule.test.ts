@@ -5,7 +5,7 @@ import { context } from "./helpers.ts";
 test("documentation links recognizes HTTPS URLs", async () => {
 	const result = await new DocumentationLinksRule().computeScore(
 		context({
-			tools: [{ name: "status", description: "See https://example.com/docs", inputSchema: {} }],
+			tools: [{ name: "status", description: "See https://example.com/docs", inputSchema: { type: "object" } }],
 		}),
 	);
 	expect(result.score).toBe(1);
