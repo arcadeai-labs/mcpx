@@ -118,7 +118,7 @@
 			"id": "tool-quality.description-content",
 			"category": "tool-quality",
 			"name": "Actionable description content",
-			"weight": 4
+			"weight": 7
 		},
 		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 5 },
 		{
@@ -129,12 +129,6 @@
 		},
 		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 3 },
 		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 5 },
-		{
-			"id": "tool-quality.documentation-links",
-			"category": "tool-quality",
-			"name": "Documentation links",
-			"weight": 3
-		},
 		{ "id": "tool-quality.parameter-count", "category": "tool-quality", "name": "Tool parameter count", "weight": 3 },
 		{ "id": "tool-quality.titles", "category": "tool-quality", "name": "Human-readable tool titles", "weight": 2 },
 		{

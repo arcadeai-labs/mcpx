@@ -46,7 +46,6 @@ import { ActionableErrorsRule } from "./tool-quality/actionable-errors-rule.ts";
 import { AnnotationValidityRule } from "./tool-quality/annotation-validity-rule.ts";
 import { CredentialParametersRule } from "./tool-quality/credential-parameters-rule.ts";
 import { DescriptionContentRule } from "./tool-quality/description-content-rule.ts";
-import { DocumentationLinksRule } from "./tool-quality/documentation-links-rule.ts";
 import { InputConstraintsRule } from "./tool-quality/input-constraints-rule.ts";
 import { OutputSchemasRule } from "./tool-quality/output-schemas-rule.ts";
 import { ParameterCountRule } from "./tool-quality/parameter-count-rule.ts";
@@ -102,7 +101,6 @@ export const QUALITY_RULES: readonly QualityRule[] = [
 	new ParameterDescriptionsRule(),
 	new InputConstraintsRule(),
 	new OutputSchemasRule(),
-	new DocumentationLinksRule(),
 	new ParameterCountRule(),
 	new ToolTitlesRule(),
 	new ActionableErrorsRule(),
