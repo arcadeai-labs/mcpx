@@ -21,3 +21,11 @@ export function context(overrides: Partial<CheckContext> = {}): CheckContext {
 		...overrides,
 	};
 }
+
+export function httpContext(overrides: Partial<CheckContext> = {}): CheckContext {
+	return context({
+		config: { url: "https://example.com/mcp" },
+		http: { url: "https://example.com/mcp", transport: "streamable-http" },
+		...overrides,
+	});
+}

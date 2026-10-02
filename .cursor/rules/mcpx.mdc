@@ -192,7 +192,8 @@ mcpx deauth <server>           # remove stored auth
 `mcpx check [server] [--rubric path] [--expect host] [--no-probe] [--min-score 80]`
 grades security, protocol readiness, tool quality, and surface size. The default rubric is
 `rubric/mcp-quality.json`; enabled weights must total 100. Invalid-argument probes only call tools marked
-`readOnlyHint: true`.
+`readOnlyHint: true`. HTTP checks also probe wire-level JSON-RPC behavior and OAuth metadata; synthetic
+invalid-token rejection may create an expected security-log event.
 
 ## Global flags
 

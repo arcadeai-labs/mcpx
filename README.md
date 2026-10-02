@@ -396,9 +396,17 @@ rule weights and grade bands; custom rubrics may change weights or disable rules
 100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use
 `--no-probe` to skip them.
 
+For HTTP servers, the report also runs MCP Debugger-style wire diagnostics: malformed JSON-RPC and protocol
+headers, Origin rejection, session termination, response envelopes and content types, reserved `_meta`, error and
+notification behavior, OAuth challenge parsing, protected-resource metadata, authorization-server discovery,
+PKCE, registration, grants, token authentication methods, and synthetic invalid-token rejection. The invalid-token
+probe can create an expected security-log event. `--no-probe` disables tool calls but not these non-mutating
+protocol and authorization probes.
+
 The checks are inspired by the [ToolBench methodology](https://toolbench.arcade.dev/methodology),
 [Smithery scoring guidance](https://github.com/AgentWorkforce/relaycast/blob/main/.claude/skills/optimizing-smithery-score/SKILL.md),
-[MCP Debugger](https://mcpdebugger.dev/about), the
+[MCP Debugger](https://mcpdebugger.dev/about) and its
+[example report](https://mcpdebugger.dev/results/3K9iOLV1AVfFeMLZuwrpd8XeVqm), the
 [official MCP conformance suite](https://github.com/modelcontextprotocol/conformance), and the
 [MCP tool specification](https://modelcontextprotocol.io/specification/draft/server/tools).
 
