@@ -96,6 +96,7 @@ mcpx search -n 5 "manage pull requests"
 | `mcpx remove <name>`                   | Remove an MCP server from your config                  |
 | `mcpx ping`                            | Check connectivity to all configured servers           |
 | `mcpx ping <server> [server2...]`      | Check connectivity to specific server(s)               |
+| `mcpx check [server]`                  | Grade server quality against the 100-point rubric       |
 | `mcpx session`                         | Print Streamable HTTP session ids for all servers      |
 | `mcpx session <server> [server2...]`   | Print Streamable HTTP session id(s) for specific servers |
 | `mcpx skill install --claude`          | Install the mcpx skill for Claude Code                 |
@@ -377,6 +378,29 @@ const client = new McpxClient({ mcp: "v2" });
 ```
 
 `mcpx info <server>` reports the requested `mcp` value plus the negotiated `protocolVersion` and `protocolEra`.
+
+## Server quality checks
+
+Grade a configured MCP server across security, protocol readiness, tool quality, and surface size:
+
+```bash
+mcpx check github
+mcpx check github --json
+mcpx check github --expect github.com --min-score 80
+mcpx check github --rubric ./my-rubric.json
+mcpx check github --no-probe
+```
+
+The default rubric is [`rubric/mcp-quality.json`](rubric/mcp-quality.json). It is the single source of truth for
+rule weights and grade bands; custom rubrics may change weights or disable rules, but enabled weights must total
+100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use
+`--no-probe` to skip them.
+
+The checks are inspired by the [ToolBench methodology](https://toolbench.arcade.dev/methodology),
+[Smithery scoring guidance](https://github.com/AgentWorkforce/relaycast/blob/main/.claude/skills/optimizing-smithery-score/SKILL.md),
+[MCP Debugger](https://mcpdebugger.dev/about), the
+[official MCP conformance suite](https://github.com/modelcontextprotocol/conformance), and the
+[MCP tool specification](https://modelcontextprotocol.io/specification/draft/server/tools).
 
 ## OAuth Flow
 
