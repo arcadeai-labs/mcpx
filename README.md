@@ -391,6 +391,10 @@ mcpx grade github --rubric ./my-rubric.json
 mcpx grade github --no-probe
 ```
 
+Interactive output includes a color-coded ASCII letter grade, compact overall and per-category pie charts,
+progress bars, detailed rule evidence, and prioritized improvements. Use `--json` (or `--format json`) for a stable
+machine-readable report with `schemaVersion`, score, grade, category totals, status summary, and every rule result.
+
 The default rubric is [`rubric/mcp-quality.json`](rubric/mcp-quality.json). It is the single source of truth for
 rule weights and grade bands; custom rubrics may change weights or disable rules, but enabled weights must total
 100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use

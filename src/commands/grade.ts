@@ -1,8 +1,10 @@
 import type { Command } from "commander";
 import { collectEvidence } from "../check/evidence.ts";
 import { gradeRules } from "../check/grade.ts";
+import { buildGradeReport } from "../check/report.ts";
 import { loadRubric } from "../check/rubric.ts";
 import { runRules } from "../check/runner.ts";
+import { formatGradeReport } from "../output/grade-report.ts";
 import { ExitError } from "../shutdown.ts";
 import { withCommand } from "./with-command.ts";
 
@@ -41,31 +43,12 @@ export function registerGradeCommand(program: Command) {
 					const grade = gradeRules(executions, rubric.gradeBands);
 					spinner.stop();
 
-					const report = {
-						server: serverName,
-						score: grade.score,
-						grade: grade.grade,
-						rubricVersion: rubric.version,
-						earnedPoints: grade.earnedPoints,
-						applicableWeight: grade.applicableWeight,
-						skippedWeight: grade.skippedWeight,
-						categories: grade.categories,
-						rules: executions.map((execution) => ({
-							id: execution.id,
-							category: execution.category,
-							name: execution.name,
-							weight: execution.weight,
-							status: execution.result.status,
-							score: Math.round(execution.result.score * 1000) / 10,
-							evidence: execution.result.evidence,
-							remediation: execution.result.remediation,
-						})),
-					};
+					const report = buildGradeReport(serverName, grade, rubric, executions);
 
 					if (formatOptions.json || formatOptions.format === "json") {
 						console.log(JSON.stringify(report, null, 2));
 					} else {
-						printReport(report);
+						console.log(formatGradeReport(report));
 					}
 					if (minimum !== undefined && grade.score < minimum) throw new ExitError(1);
 				},
@@ -87,21 +70,4 @@ function parseMinimum(raw: string | undefined): number | undefined {
 		throw new Error("--min-score must be a number between 0 and 100");
 	}
 	return value;
-}
-
-function printReport(report: {
-	server: string;
-	score: number;
-	grade: string;
-	categories: Array<{ category: string; score: number }>;
-	rules: Array<{ category: string; name: string; status: string; score: number; evidence: string }>;
-}) {
-	console.log(`${report.server}: ${report.score}/100 (${report.grade})`);
-	for (const category of report.categories) {
-		console.log(`\n${category.category}: ${category.score}/100`);
-		for (const rule of report.rules.filter((candidate) => candidate.category === category.category)) {
-			const marker = rule.status === "pass" ? "PASS" : rule.status === "skip" ? "SKIP" : rule.status.toUpperCase();
-			console.log(`  ${marker} ${rule.name}: ${rule.score}% — ${rule.evidence}`);
-		}
-	}
 }
