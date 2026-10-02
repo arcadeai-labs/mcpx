@@ -116,10 +116,10 @@ async function collectHttpEvidence(config: HttpServerConfig, accessToken?: strin
 		};
 	}
 
-	const authenticatedHeaders = accessToken ? { authorization: `Bearer ${accessToken}` } : {};
+	const authenticatedHeaders: Record<string, string> = accessToken ? { authorization: `Bearer ${accessToken}` } : {};
 	const initialized = await postJsonRpc(config.url, initializeRequest(), authenticatedHeaders);
 	const sessionId = initialized?.headers["mcp-session-id"];
-	const requestHeaders = {
+	const requestHeaders: Record<string, string> = {
 		...authenticatedHeaders,
 		...(sessionId ? { "mcp-session-id": sessionId } : {}),
 	};

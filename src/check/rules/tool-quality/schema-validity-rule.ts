@@ -1,3 +1,4 @@
+import type { AnySchema } from "ajv";
 import Ajv2020 from "ajv/dist/2020.js";
 import { asObject, toolRecord } from "../helpers/schema.ts";
 import { type CheckContext, QualityRule, type RuleResult, result } from "../rule.ts";
@@ -16,8 +17,9 @@ export class SchemaValidityRule extends QualityRule {
 				if (schema === undefined) continue;
 				total++;
 				try {
-					if (!asObject(schema)) continue;
-					ajv.compile(schema);
+					const objectSchema = asObject(schema);
+					if (!objectSchema) continue;
+					ajv.compile(objectSchema as AnySchema);
 					valid++;
 				} catch {
 					// Invalid schemas score zero.
