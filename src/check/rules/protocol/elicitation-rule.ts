@@ -4,7 +4,6 @@ export class ElicitationRule extends QualityRule {
 	readonly id = "protocol.elicitation";
 	readonly category = "protocol" as const;
 	readonly name = "Elicitation support";
-	readonly weight = 2;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const evidence = JSON.stringify({

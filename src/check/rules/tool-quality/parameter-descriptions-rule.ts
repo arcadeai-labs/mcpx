@@ -5,7 +5,6 @@ export class ParameterDescriptionsRule extends QualityRule {
 	readonly id = "tool-quality.parameter-descriptions";
 	readonly category = "tool-quality" as const;
 	readonly name = "Parameter descriptions";
-	readonly weight = 5;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const total = countToolProperties(context.tools);

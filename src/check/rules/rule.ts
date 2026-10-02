@@ -53,16 +53,10 @@ export abstract class QualityRule {
 	abstract readonly id: string;
 	abstract readonly category: RuleCategory;
 	abstract readonly name: string;
-	abstract readonly weight: number;
 	abstract computeScore(context: CheckContext): Promise<RuleResult>;
 }
 
-export function result(
-	score: number,
-	evidence: string,
-	remediation?: string,
-	status?: RuleStatus,
-): RuleResult {
+export function result(score: number, evidence: string, remediation?: string, status?: RuleStatus): RuleResult {
 	const normalized = Math.max(0, Math.min(1, score));
 	return {
 		score: normalized,

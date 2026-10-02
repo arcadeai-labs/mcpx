@@ -5,7 +5,6 @@ export class ToolTitlesRule extends QualityRule {
 	readonly id = "tool-quality.titles";
 	readonly category = "tool-quality" as const;
 	readonly name = "Human-readable tool titles";
-	readonly weight = 2;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const titled = context.tools.filter((tool) => {

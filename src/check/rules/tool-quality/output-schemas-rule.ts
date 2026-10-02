@@ -5,7 +5,6 @@ export class OutputSchemasRule extends QualityRule {
 	readonly id = "tool-quality.output-schemas";
 	readonly category = "tool-quality" as const;
 	readonly name = "Typed tool responses";
-	readonly weight = 6;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const typed = context.tools.filter((tool) => asObject(toolRecord(tool).outputSchema)).length;

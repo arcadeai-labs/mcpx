@@ -22,13 +22,13 @@ export interface Rubric {
 }
 
 export async function loadRubric(path?: string): Promise<Rubric> {
-	if (!path) return validateRubric(defaultRubricData, true);
+	if (!path) return validateRubric(defaultRubricData);
 	const file = Bun.file(path);
 	if (!(await file.exists())) throw new Error(`Rubric file not found: ${path}`);
-	return validateRubric(JSON.parse(await file.text()), false);
+	return validateRubric(JSON.parse(await file.text()));
 }
 
-export function validateRubric(data: unknown, requireDefaultWeights = false): Rubric {
+export function validateRubric(data: unknown): Rubric {
 	if (!isObject(data)) throw new Error("Rubric must be a JSON object");
 	if (!Number.isInteger(data.version) || (data.version as number) < 1) {
 		throw new Error("Rubric version must be a positive integer");
@@ -53,9 +53,6 @@ export function validateRubric(data: unknown, requireDefaultWeights = false): Ru
 		if (name !== implementation.name) throw new Error(`${id} name must match implementation (${implementation.name})`);
 		if (typeof raw.weight !== "number" || !Number.isFinite(raw.weight) || raw.weight < 0) {
 			throw new Error(`${id} weight must be a non-negative number`);
-		}
-		if (requireDefaultWeights && raw.weight !== implementation.weight) {
-			throw new Error(`${id} weight drifted from implementation default (${implementation.weight})`);
 		}
 		return {
 			id,

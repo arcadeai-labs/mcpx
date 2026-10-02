@@ -5,7 +5,6 @@ export class ProtocolVersionRule extends QualityRule {
 	readonly id = "protocol.version";
 	readonly category = "protocol" as const;
 	readonly name = "Current MCP protocol version";
-	readonly weight = 5;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const version = context.serverInfo.protocolVersion;

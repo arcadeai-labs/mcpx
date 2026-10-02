@@ -5,7 +5,6 @@ export class InputConstraintsRule extends QualityRule {
 	readonly id = "tool-quality.input-constraints";
 	readonly category = "tool-quality" as const;
 	readonly name = "Input constraints";
-	readonly weight = 3;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const total = countToolProperties(context.tools);

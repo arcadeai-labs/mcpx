@@ -20,18 +20,12 @@ export interface GradeResult {
 export function gradeRules(executions: RuleExecution[], bands: GradeBand[]): GradeResult {
 	const applicable = executions.filter((execution) => execution.result.status !== "skip");
 	const applicableWeight = applicable.reduce((sum, execution) => sum + execution.weight, 0);
-	const earnedPoints = applicable.reduce(
-		(sum, execution) => sum + execution.weight * execution.result.score,
-		0,
-	);
+	const earnedPoints = applicable.reduce((sum, execution) => sum + execution.weight * execution.result.score, 0);
 	const score = applicableWeight === 0 ? 0 : round((earnedPoints / applicableWeight) * 100);
 	const categories = [...new Set(executions.map((execution) => execution.category))].map((category) => {
 		const categoryRules = applicable.filter((execution) => execution.category === category);
 		const weight = categoryRules.reduce((sum, execution) => sum + execution.weight, 0);
-		const earned = categoryRules.reduce(
-			(sum, execution) => sum + execution.weight * execution.result.score,
-			0,
-		);
+		const earned = categoryRules.reduce((sum, execution) => sum + execution.weight * execution.result.score, 0);
 		return {
 			category,
 			score: weight === 0 ? 0 : round((earned / weight) * 100),

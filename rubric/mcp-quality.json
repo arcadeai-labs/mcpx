@@ -21,18 +21,48 @@
 		{ "id": "protocol.elicitation", "category": "protocol", "name": "Elicitation support", "weight": 2 },
 		{ "id": "protocol.origin-validation", "category": "protocol", "name": "Origin validation", "weight": 2 },
 		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 6 },
-		{ "id": "tool-quality.description-content", "category": "tool-quality", "name": "Actionable description content", "weight": 4 },
+		{
+			"id": "tool-quality.description-content",
+			"category": "tool-quality",
+			"name": "Actionable description content",
+			"weight": 4
+		},
 		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 6 },
-		{ "id": "tool-quality.parameter-descriptions", "category": "tool-quality", "name": "Parameter descriptions", "weight": 5 },
+		{
+			"id": "tool-quality.parameter-descriptions",
+			"category": "tool-quality",
+			"name": "Parameter descriptions",
+			"weight": 5
+		},
 		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 3 },
 		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 6 },
-		{ "id": "tool-quality.documentation-links", "category": "tool-quality", "name": "Documentation links", "weight": 3 },
+		{
+			"id": "tool-quality.documentation-links",
+			"category": "tool-quality",
+			"name": "Documentation links",
+			"weight": 3
+		},
 		{ "id": "tool-quality.parameter-count", "category": "tool-quality", "name": "Tool parameter count", "weight": 3 },
 		{ "id": "tool-quality.titles", "category": "tool-quality", "name": "Human-readable tool titles", "weight": 2 },
-		{ "id": "tool-quality.actionable-errors", "category": "tool-quality", "name": "Actionable validation errors", "weight": 5 },
-		{ "id": "tool-quality.credential-parameters", "category": "tool-quality", "name": "Credentials outside tool parameters", "weight": 2 },
+		{
+			"id": "tool-quality.actionable-errors",
+			"category": "tool-quality",
+			"name": "Actionable validation errors",
+			"weight": 5
+		},
+		{
+			"id": "tool-quality.credential-parameters",
+			"category": "tool-quality",
+			"name": "Credentials outside tool parameters",
+			"weight": 2
+		},
 		{ "id": "surface.tool-count", "category": "surface", "name": "Focused tool count", "weight": 6 },
-		{ "id": "surface.declared-capabilities", "category": "surface", "name": "Declared capability availability", "weight": 2 },
+		{
+			"id": "surface.declared-capabilities",
+			"category": "surface",
+			"name": "Declared capability availability",
+			"weight": 2
+		},
 		{ "id": "surface.server-instructions", "category": "surface", "name": "Server instructions", "weight": 2 }
 	]
 }

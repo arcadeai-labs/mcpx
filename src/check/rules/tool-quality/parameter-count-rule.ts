@@ -5,7 +5,6 @@ export class ParameterCountRule extends QualityRule {
 	readonly id = "tool-quality.parameter-count";
 	readonly category = "tool-quality" as const;
 	readonly name = "Tool parameter count";
-	readonly weight = 3;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const total = context.tools.reduce((sum, tool) => sum + Object.keys(propertiesOf(tool)).length, 0);

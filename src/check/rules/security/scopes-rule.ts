@@ -4,7 +4,6 @@ export class ScopesRule extends QualityRule {
 	readonly id = "security.scopes";
 	readonly category = "security" as const;
 	readonly name = "OAuth scopes";
-	readonly weight = 4;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.http?.oauth) return skipped("Public or non-HTTP server does not require OAuth scopes");

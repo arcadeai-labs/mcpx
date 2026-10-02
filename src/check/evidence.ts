@@ -35,9 +35,7 @@ export async function collectEvidence(
 	const resources = settledValue(resourcesResult, "resources", capabilityErrors);
 	const prompts = settledValue(promptsResult, "prompts", capabilityErrors);
 	const http = isHttpServer(serverConfig) ? await collectHttpEvidence(serverConfig) : undefined;
-	const probes = options.probesEnabled
-		? await runErrorProbes(manager, serverName, tools, options.maxProbes ?? 3)
-		: [];
+	const probes = options.probesEnabled ? await runErrorProbes(manager, serverName, tools, options.maxProbes ?? 3) : [];
 
 	return {
 		serverName,
@@ -134,7 +132,9 @@ async function runErrorProbes(
 		.filter((tool) => toolAnnotations(tool)?.readOnlyHint === true)
 		.flatMap((tool) => {
 			const required = asObject(tool.inputSchema)?.required;
-			const field = Array.isArray(required) ? required.find((value): value is string => typeof value === "string") : undefined;
+			const field = Array.isArray(required)
+				? required.find((value): value is string => typeof value === "string")
+				: undefined;
 			return field ? [{ tool, field }] : [];
 		})
 		.slice(0, maxProbes);

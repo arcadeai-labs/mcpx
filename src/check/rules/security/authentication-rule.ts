@@ -6,7 +6,6 @@ export class AuthenticationRule extends QualityRule {
 	readonly id = "security.authentication";
 	readonly category = "security" as const;
 	readonly name = "OAuth 2.0 or public access";
-	readonly weight = 6;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.http) return skipped("Not applicable to stdio transport");
@@ -21,7 +20,9 @@ export class AuthenticationRule extends QualityRule {
 		}
 		return result(
 			0,
-			status ? `Authentication required (HTTP ${status}) but OAuth metadata was not discovered` : "Authentication mode is unknown",
+			status
+				? `Authentication required (HTTP ${status}) but OAuth metadata was not discovered`
+				: "Authentication mode is unknown",
 			"Publish OAuth protected-resource metadata or allow public access",
 		);
 	}

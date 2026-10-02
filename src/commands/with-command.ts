@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { type AppContext, getContext, type GetContextOverrides } from "../context.ts";
+import { type AppContext, type GetContextOverrides, getContext } from "../context.ts";
 import { formatError } from "../output/formatter.ts";
 import { logger, type Spinner } from "../output/logger.ts";
 import { ExitError } from "../shutdown.ts";

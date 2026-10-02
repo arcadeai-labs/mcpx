@@ -4,7 +4,6 @@ export class PkceRule extends QualityRule {
 	readonly id = "security.pkce";
 	readonly category = "security" as const;
 	readonly name = "PKCE support";
-	readonly weight = 3;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.http?.oauth) return skipped("Public or non-HTTP server does not require PKCE");

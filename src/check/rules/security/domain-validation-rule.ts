@@ -5,7 +5,6 @@ export class DomainValidationRule extends QualityRule {
 	readonly id = "security.domain";
 	readonly category = "security" as const;
 	readonly name = "Domain validation";
-	readonly weight = 3;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.http) return skipped("Not applicable to stdio transport");
@@ -20,7 +19,11 @@ export class DomainValidationRule extends QualityRule {
 		const matches = candidates.some((token) => host.includes(token));
 		return result(
 			isIp ? 0 : matches ? 1 : 0.5,
-			isIp ? "Endpoint uses a raw IP address" : matches ? "Endpoint host matches server identity" : "Host is valid but identity match is inconclusive",
+			isIp
+				? "Endpoint uses a raw IP address"
+				: matches
+					? "Endpoint host matches server identity"
+					: "Host is valid but identity match is inconclusive",
 			"Pass --expect <company-or-host> for an explicit identity check",
 		);
 	}

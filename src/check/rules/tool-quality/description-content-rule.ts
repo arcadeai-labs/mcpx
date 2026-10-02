@@ -10,7 +10,6 @@ export class DescriptionContentRule extends QualityRule {
 	readonly id = "tool-quality.description-content";
 	readonly category = "tool-quality" as const;
 	readonly name = "Actionable description content";
-	readonly weight = 4;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		let passed = 0;

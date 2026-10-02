@@ -7,7 +7,6 @@ export class ToolAnnotationsRule extends QualityRule {
 	readonly id = "protocol.tool-annotations";
 	readonly category = "protocol" as const;
 	readonly name = "Tool behavior annotations";
-	readonly weight = 4;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		let present = 0;

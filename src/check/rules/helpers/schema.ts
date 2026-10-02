@@ -3,9 +3,7 @@ import type { Tool } from "../../../config/schemas.ts";
 export type JsonObject = Record<string, unknown>;
 
 export function asObject(value: unknown): JsonObject | undefined {
-	return value !== null && typeof value === "object" && !Array.isArray(value)
-		? (value as JsonObject)
-		: undefined;
+	return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : undefined;
 }
 
 export function toolRecord(tool: Tool): JsonObject {

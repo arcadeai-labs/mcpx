@@ -5,7 +5,6 @@ export class ToolDescriptionsRule extends QualityRule {
 	readonly id = "tool-quality.descriptions";
 	readonly category = "tool-quality" as const;
 	readonly name = "Tool descriptions";
-	readonly weight = 6;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const described = context.tools.filter((tool) => (tool.description?.trim().length ?? 0) > 0).length;

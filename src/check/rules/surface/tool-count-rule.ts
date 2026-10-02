@@ -4,7 +4,6 @@ export class ToolCountRule extends QualityRule {
 	readonly id = "surface.tool-count";
 	readonly category = "surface" as const;
 	readonly name = "Focused tool count";
-	readonly weight = 6;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		return result(

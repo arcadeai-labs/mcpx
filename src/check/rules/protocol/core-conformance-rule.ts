@@ -7,7 +7,6 @@ export class CoreConformanceRule extends QualityRule {
 	readonly id = "protocol.core-conformance";
 	readonly category = "protocol" as const;
 	readonly name = "Core MCP conformance";
-	readonly weight = 8;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		let passed = context.pingSucceeded ? 1 : 0;

@@ -5,7 +5,6 @@ export class ActionableErrorsRule extends QualityRule {
 	readonly id = "tool-quality.actionable-errors";
 	readonly category = "tool-quality" as const;
 	readonly name = "Actionable validation errors";
-	readonly weight = 5;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.probesEnabled) return skipped("Error probes were disabled");

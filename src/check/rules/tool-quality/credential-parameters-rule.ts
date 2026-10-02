@@ -7,7 +7,6 @@ export class CredentialParametersRule extends QualityRule {
 	readonly id = "tool-quality.credential-parameters";
 	readonly category = "tool-quality" as const;
 	readonly name = "Credentials outside tool parameters";
-	readonly weight = 2;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const names = context.tools.flatMap((tool) => Object.keys(propertiesOf(tool)));

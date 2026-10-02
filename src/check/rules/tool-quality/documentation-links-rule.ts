@@ -6,7 +6,6 @@ export class DocumentationLinksRule extends QualityRule {
 	readonly id = "tool-quality.documentation-links";
 	readonly category = "tool-quality" as const;
 	readonly name = "Documentation links";
-	readonly weight = 3;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		const linked = context.tools.filter((tool) => URL_PATTERN.test(tool.description ?? "")).length;

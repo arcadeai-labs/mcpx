@@ -4,7 +4,6 @@ export class OriginValidationRule extends QualityRule {
 	readonly id = "protocol.origin-validation";
 	readonly category = "protocol" as const;
 	readonly name = "Origin validation";
-	readonly weight = 2;
 
 	async computeScore(context: CheckContext): Promise<RuleResult> {
 		if (!context.http) return skipped("Not applicable to stdio transport");
