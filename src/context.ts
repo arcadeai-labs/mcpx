@@ -14,8 +14,13 @@ export interface AppContext {
 	noInteractive: boolean;
 }
 
+export interface GetContextOverrides {
+	mcp?: McpVersion;
+	forceMcp?: boolean;
+}
+
 /** Build the app context from the root commander program options */
-export async function getContext(program: Command): Promise<AppContext> {
+export async function getContext(program: Command, overrides: GetContextOverrides = {}): Promise<AppContext> {
 	const opts = program.opts();
 
 	const config = await loadConfig({
@@ -38,10 +43,12 @@ export async function getContext(program: Command): Promise<AppContext> {
 		// CLI --mcp-version overrides MCP_VERSION; per-server `mcp` still wins later.
 		if (opts.mcpVersion !== undefined) parseMcpVersion(opts.mcpVersion as string);
 		if (process.env[ENV.MCP_VERSION]) parseMcpVersion(process.env[ENV.MCP_VERSION]);
-		mcp = resolveMcpVersion({
-			cli: opts.mcpVersion as string | undefined,
-			env: process.env[ENV.MCP_VERSION],
-		});
+		mcp =
+			overrides.mcp ??
+			resolveMcpVersion({
+				cli: opts.mcpVersion as string | undefined,
+				env: process.env[ENV.MCP_VERSION],
+			});
 	} catch (err) {
 		logger.error(`error: ${err instanceof Error ? err.message : String(err)}`);
 		process.exit(1);
@@ -71,6 +78,7 @@ export async function getContext(program: Command): Promise<AppContext> {
 		json,
 		noInteractive,
 		mcp,
+		forceMcp: overrides.forceMcp,
 	});
 
 	const formatOptions: FormatOptions = {

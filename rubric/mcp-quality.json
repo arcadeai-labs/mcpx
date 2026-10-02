@@ -1,0 +1,38 @@
+{
+	"version": 1,
+	"gradeBands": [
+		{ "grade": "A+", "minimum": 90 },
+		{ "grade": "A", "minimum": 80 },
+		{ "grade": "B", "minimum": 70 },
+		{ "grade": "C", "minimum": 60 },
+		{ "grade": "D", "minimum": 50 },
+		{ "grade": "F", "minimum": 0 }
+	],
+	"rules": [
+		{ "id": "security.https", "category": "security", "name": "HTTPS transport", "weight": 4 },
+		{ "id": "security.authentication", "category": "security", "name": "OAuth 2.0 or public access", "weight": 6 },
+		{ "id": "security.scopes", "category": "security", "name": "OAuth scopes", "weight": 4 },
+		{ "id": "security.domain", "category": "security", "name": "Domain validation", "weight": 3 },
+		{ "id": "security.pkce", "category": "security", "name": "PKCE support", "weight": 3 },
+		{ "id": "protocol.core-conformance", "category": "protocol", "name": "Core MCP conformance", "weight": 8 },
+		{ "id": "protocol.version", "category": "protocol", "name": "Current MCP protocol version", "weight": 5 },
+		{ "id": "protocol.stateless-http", "category": "protocol", "name": "Stateless Streamable HTTP", "weight": 4 },
+		{ "id": "protocol.tool-annotations", "category": "protocol", "name": "Tool behavior annotations", "weight": 4 },
+		{ "id": "protocol.elicitation", "category": "protocol", "name": "Elicitation support", "weight": 2 },
+		{ "id": "protocol.origin-validation", "category": "protocol", "name": "Origin validation", "weight": 2 },
+		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 6 },
+		{ "id": "tool-quality.description-content", "category": "tool-quality", "name": "Actionable description content", "weight": 4 },
+		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 6 },
+		{ "id": "tool-quality.parameter-descriptions", "category": "tool-quality", "name": "Parameter descriptions", "weight": 5 },
+		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 3 },
+		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 6 },
+		{ "id": "tool-quality.documentation-links", "category": "tool-quality", "name": "Documentation links", "weight": 3 },
+		{ "id": "tool-quality.parameter-count", "category": "tool-quality", "name": "Tool parameter count", "weight": 3 },
+		{ "id": "tool-quality.titles", "category": "tool-quality", "name": "Human-readable tool titles", "weight": 2 },
+		{ "id": "tool-quality.actionable-errors", "category": "tool-quality", "name": "Actionable validation errors", "weight": 5 },
+		{ "id": "tool-quality.credential-parameters", "category": "tool-quality", "name": "Credentials outside tool parameters", "weight": 2 },
+		{ "id": "surface.tool-count", "category": "surface", "name": "Focused tool count", "weight": 6 },
+		{ "id": "surface.declared-capabilities", "category": "surface", "name": "Declared capability availability", "weight": 2 },
+		{ "id": "surface.server-instructions", "category": "surface", "name": "Server instructions", "weight": 2 }
+	]
+}

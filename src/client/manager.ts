@@ -88,6 +88,8 @@ export interface ServerManagerOptions {
 	noInteractive?: boolean; // decline elicitation requests
 	/** Default MCP protocol era when a server does not set `mcp`. */
 	mcp?: McpVersion;
+	/** Ignore per-server MCP era (used by diagnostics that must negotiate automatically). */
+	forceMcp?: boolean;
 }
 
 export class ServerManager {
@@ -107,6 +109,7 @@ export class ServerManager {
 	private json: boolean;
 	private noInteractive: boolean;
 	private mcp: McpVersion;
+	private forceMcp: boolean;
 
 	constructor(opts: ServerManagerOptions) {
 		this.servers = opts.servers;
@@ -121,10 +124,12 @@ export class ServerManager {
 		this.json = opts.json ?? false;
 		this.noInteractive = opts.noInteractive ?? false;
 		this.mcp = opts.mcp ?? "v1";
+		this.forceMcp = opts.forceMcp ?? false;
 		register(this);
 	}
 
 	private mcpFor(_serverName: string, config: ServerConfig): McpVersion {
+		if (this.forceMcp) return this.mcp;
 		return resolveMcpVersion({ server: config.mcp, fallback: this.mcp });
 	}
 

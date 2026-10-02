@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { type AppContext, getContext } from "../context.ts";
+import { type AppContext, getContext, type GetContextOverrides } from "../context.ts";
 import { formatError } from "../output/formatter.ts";
 import { logger, type Spinner } from "../output/logger.ts";
 import { ExitError } from "../shutdown.ts";
@@ -13,6 +13,8 @@ interface WithCommandOptions {
 	spinnerText?: string;
 	/** Error message for spinner.error(). Defaults to "Failed". */
 	errorLabel?: string;
+	/** Optional connection settings used by diagnostic commands. */
+	contextOverrides?: GetContextOverrides;
 }
 
 const noopSpinner: Spinner = {
@@ -40,7 +42,7 @@ export function withCommand<TArgs extends unknown[]>(
 	handler: (ctx: CommandContext, ...args: TArgs) => Promise<void>,
 ): (...args: TArgs) => Promise<void> {
 	return async (...args: TArgs) => {
-		const appCtx = await getContext(program);
+		const appCtx = await getContext(program, options.contextOverrides);
 		const { manager, formatOptions } = appCtx;
 
 		const spinner = options.spinnerText ? logger.startSpinner(options.spinnerText, formatOptions) : noopSpinner;
