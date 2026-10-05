@@ -16,10 +16,27 @@ const mockRefreshAuthorization = mock(() =>
 
 const mockAuth = mock(() => Promise.resolve("AUTHORIZED"));
 
+// The authorization server lives on a different origin than the MCP server.
+const AS_METADATA = {
+	issuer: "https://auth.example.com",
+	authorization_endpoint: "https://auth.example.com/oauth2/authorize",
+	token_endpoint: "https://auth.example.com/oauth2/token",
+	response_types_supported: ["code"],
+};
+const mockDiscoverOAuthServerInfo = mock((_serverUrl: string) =>
+	Promise.resolve({
+		authorizationServerUrl: "https://auth.example.com",
+		authorizationServerMetadata: AS_METADATA,
+		resourceMetadata: { resource: "http://example.com/mcp", authorization_servers: ["https://auth.example.com"] },
+	}),
+);
+const mockSelectResourceURL = mock(() => Promise.resolve(new URL("http://example.com/mcp")));
+
 mock.module("../../src/client/oauth-api.ts", () => ({
 	auth: mockAuth,
-	discoverOAuthServerInfo: mock(),
+	discoverOAuthServerInfo: mockDiscoverOAuthServerInfo,
 	refreshAuthorization: mockRefreshAuthorization,
+	selectResourceURL: mockSelectResourceURL,
 }));
 
 import {
@@ -293,6 +310,28 @@ describe("createConnectAuthProvider", () => {
 			await rm(dir, { recursive: true });
 		}
 	});
+
+	test("onUnauthorized surfaces the underlying refresh failure", async () => {
+		const auth: AuthFile = {
+			"test-server": {
+				tokens: { access_token: "old-token", token_type: "Bearer", refresh_token: "my-refresh-token" },
+				client_info: { client_id: "my-client" },
+				complete: true,
+			},
+		};
+		const provider = makeProvider(auth);
+		const connect = createConnectAuthProvider({
+			provider,
+			serverName: "test-server",
+			serverUrl: "http://example.com/mcp",
+		});
+		const cause = new Error("invalid_grant: refresh token revoked");
+		mockRefreshAuthorization.mockImplementationOnce(() => Promise.reject(cause));
+		const err = await connect?.onUnauthorized?.({} as never).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(AuthRequiredError);
+		expect((err as Error).message).toContain("invalid_grant: refresh token revoked");
+		expect((err as Error).cause).toBe(cause);
+	});
 });
 
 describe("isAuthError", () => {
@@ -369,14 +408,18 @@ describe("refreshIfNeeded", () => {
 			});
 
 			mockRefreshAuthorization.mockClear();
+			mockDiscoverOAuthServerInfo.mockClear();
 
-			await provider.refreshIfNeeded("http://example.com");
+			await provider.refreshIfNeeded("http://example.com/mcp");
 
-			// Verify refreshAuthorization was called with correct args
+			// Refresh goes to the discovered authorization server, not the MCP server origin
+			expect(mockDiscoverOAuthServerInfo).toHaveBeenCalledWith("http://example.com/mcp");
 			expect(mockRefreshAuthorization).toHaveBeenCalledTimes(1);
-			expect(mockRefreshAuthorization).toHaveBeenCalledWith("http://example.com", {
+			expect(mockRefreshAuthorization).toHaveBeenCalledWith("https://auth.example.com", {
+				metadata: AS_METADATA,
 				clientInformation: { client_id: "my-client", client_secret: "my-secret" },
 				refreshToken: "my-refresh-token",
+				resource: new URL("http://example.com/mcp"),
 			});
 
 			// Verify new tokens were saved in memory
@@ -400,6 +443,33 @@ describe("refreshIfNeeded", () => {
 		} finally {
 			stderrSpy.mockRestore();
 			Object.defineProperty(process.stderr, "isTTY", { value: origIsTTY, writable: true });
+			await rm(dir, { recursive: true });
+		}
+	});
+
+	test("clears a stale expires_at when the refreshed token has no expires_in", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-refresh-"));
+		try {
+			const auth: AuthFile = {
+				"test-server": {
+					tokens: { access_token: "old", token_type: "Bearer", refresh_token: "my-refresh-token" },
+					expires_at: new Date(Date.now() - 60000).toISOString(),
+					client_info: { client_id: "my-client" },
+					complete: true,
+				},
+			};
+			const provider = new McpOAuthProvider({ serverName: "test-server", configDir: dir, auth });
+			mockRefreshAuthorization.mockImplementationOnce(() =>
+				Promise.resolve({
+					access_token: "no-expiry",
+					token_type: "Bearer",
+					refresh_token: "my-refresh-token",
+				} as never),
+			);
+			await provider.refreshIfNeeded("http://example.com/mcp");
+			expect(provider.tokens()?.access_token).toBe("no-expiry");
+			expect(provider.isExpired()).toBe(false);
+		} finally {
 			await rm(dir, { recursive: true });
 		}
 	});

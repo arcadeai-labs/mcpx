@@ -164,6 +164,9 @@ export class ServerManager {
 						// Missing refresh token / client info: fail now, don't start a browser loop.
 						if (err instanceof AuthRequiredError) throw err;
 						// Transient refresh failure: continue — the transport will send the existing token
+						logger.debug(
+							`Pre-connect token refresh failed for "${serverName}": ${err instanceof Error ? err.message : err}`,
+						);
 					}
 				}
 			}

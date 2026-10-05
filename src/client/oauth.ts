@@ -12,7 +12,7 @@ import type { AuthFile } from "../config/schemas.ts";
 import type { FormatOptions } from "../output/formatter.ts";
 import { logger } from "../output/logger.ts";
 import { openBrowser } from "./browser.ts";
-import { auth, discoverOAuthServerInfo, refreshAuthorization } from "./oauth-api.ts";
+import { auth, discoverOAuthServerInfo, refreshAuthorization, selectResourceURL } from "./oauth-api.ts";
 
 /** Thrown when an HTTP server needs an interactive `mcpx auth` instead of a silent retry. */
 export class AuthRequiredError extends Error {
@@ -90,10 +90,13 @@ export class McpOAuthProvider implements OAuthClientProvider {
 			this.auth[this.serverName]!.tokens = tokens;
 		}
 
-		// Compute expires_at from expires_in
+		// Compute expires_at from expires_in; drop a stale one so a refreshed
+		// token without expires_in isn't treated as expired forever.
 		if (tokens.expires_in) {
 			const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 			this.auth[this.serverName]!.expires_at = expiresAt.toISOString();
+		} else {
+			delete this.auth[this.serverName]!.expires_at;
 		}
 
 		// Mark auth as complete — tokens have been successfully obtained
@@ -216,9 +219,17 @@ export class McpOAuthProvider implements OAuthClientProvider {
 			);
 		}
 
-		const tokens = await refreshAuthorization(serverUrl, {
+		// The token endpoint lives on the authorization server, which is usually
+		// not the MCP server's origin — discover it rather than POSTing to
+		// `<mcp origin>/token`. Also bind the refresh to the resource (RFC 8707),
+		// as the authorization-code exchange did.
+		const info = await discoverOAuthServerInfo(serverUrl);
+		const resource = await selectResourceURL(serverUrl, this, info.resourceMetadata);
+		const tokens = await refreshAuthorization(info.authorizationServerUrl, {
+			metadata: info.authorizationServerMetadata,
 			clientInformation: clientInfo,
 			refreshToken: this.auth[this.serverName]?.tokens.refresh_token!,
+			resource,
 		});
 
 		await this.saveTokens(tokens);
@@ -258,10 +269,14 @@ export function createConnectAuthProvider(opts: {
 				await provider.refreshTokens(serverUrl);
 			} catch (err) {
 				if (err instanceof AuthRequiredError) throw err;
-				throw new AuthRequiredError(
+				const reason = err instanceof Error ? err.message : String(err);
+				logger.debug(`Token refresh failed for "${serverName}": ${reason}`);
+				const authErr = new AuthRequiredError(
 					serverName,
-					`Token refresh failed for "${serverName}". Run: mcpx auth ${serverName}`,
+					`Token refresh failed for "${serverName}" (${reason}). Run: mcpx auth ${serverName}`,
 				);
+				authErr.cause = err;
+				throw authErr;
 			}
 		},
 	};
