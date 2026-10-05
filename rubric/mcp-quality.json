@@ -113,29 +113,29 @@
 			"name": "Notification has no JSON-RPC response",
 			"weight": 0.5
 		},
-		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 5 },
+		{ "id": "tool-quality.descriptions", "category": "tool-quality", "name": "Tool descriptions", "weight": 4 },
 		{
 			"id": "tool-quality.description-content",
 			"category": "tool-quality",
 			"name": "Actionable description content",
-			"weight": 7
+			"weight": 4
 		},
-		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 5 },
+		{ "id": "tool-quality.typed-parameters", "category": "tool-quality", "name": "Typed tool parameters", "weight": 4 },
 		{
 			"id": "tool-quality.parameter-descriptions",
 			"category": "tool-quality",
 			"name": "Parameter descriptions",
-			"weight": 5
+			"weight": 4
 		},
-		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 3 },
-		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 5 },
-		{ "id": "tool-quality.parameter-count", "category": "tool-quality", "name": "Tool parameter count", "weight": 3 },
-		{ "id": "tool-quality.titles", "category": "tool-quality", "name": "Human-readable tool titles", "weight": 2 },
+		{ "id": "tool-quality.input-constraints", "category": "tool-quality", "name": "Input constraints", "weight": 2 },
+		{ "id": "tool-quality.output-schemas", "category": "tool-quality", "name": "Typed tool responses", "weight": 4 },
+		{ "id": "tool-quality.parameter-count", "category": "tool-quality", "name": "Tool parameter count", "weight": 2 },
+		{ "id": "tool-quality.titles", "category": "tool-quality", "name": "Human-readable tool titles", "weight": 1.5 },
 		{
 			"id": "tool-quality.actionable-errors",
 			"category": "tool-quality",
 			"name": "Actionable validation errors",
-			"weight": 5
+			"weight": 3.5
 		},
 		{
 			"id": "tool-quality.credential-parameters",
@@ -143,14 +143,84 @@
 			"name": "Credentials outside tool parameters",
 			"weight": 2
 		},
-		{ "id": "tool-quality.schema-validity", "category": "tool-quality", "name": "Tool schema validity", "weight": 2 },
+		{ "id": "tool-quality.schema-validity", "category": "tool-quality", "name": "Tool schema validity", "weight": 1.5 },
 		{
 			"id": "tool-quality.annotation-validity",
 			"category": "tool-quality",
 			"name": "Tool annotation validity",
 			"weight": 1
 		},
-		{ "id": "surface.tool-count", "category": "surface", "name": "Focused tool count", "weight": 6 },
+		{ "id": "tool-quality.naming", "category": "tool-quality", "name": "Tool naming", "weight": 1 },
+		{
+			"id": "tool-quality.description-substance",
+			"category": "tool-quality",
+			"name": "Substantive tool descriptions",
+			"weight": 1.5
+		},
+		{
+			"id": "tool-quality.dependency-hints",
+			"category": "tool-quality",
+			"name": "Prerequisite hints for IDs",
+			"weight": 1
+		},
+		{
+			"id": "tool-quality.annotation-name-consistency",
+			"category": "tool-quality",
+			"name": "Annotations match tool names",
+			"weight": 1.5
+		},
+		{
+			"id": "tool-quality.destructive-disclosure",
+			"category": "tool-quality",
+			"name": "Destructive effects disclosed",
+			"weight": 1
+		},
+		{
+			"id": "tool-quality.unsafe-defaults",
+			"category": "tool-quality",
+			"name": "Safe parameter defaults",
+			"weight": 1
+		},
+		{
+			"id": "tool-quality.enum-in-prose",
+			"category": "tool-quality",
+			"name": "Enumerated values in schema",
+			"weight": 0.5
+		},
+		{
+			"id": "tool-quality.format-documentation",
+			"category": "tool-quality",
+			"name": "Date and time formats documented",
+			"weight": 0.5
+		},
+		{
+			"id": "tool-quality.parameter-examples",
+			"category": "tool-quality",
+			"name": "Parameter examples",
+			"weight": 0.5
+		},
+		{ "id": "tool-quality.batch-limits", "category": "tool-quality", "name": "Bounded array inputs", "weight": 0.5 },
+		{ "id": "tool-quality.pagination", "category": "tool-quality", "name": "Paginated list results", "weight": 1 },
+		{ "id": "tool-quality.schema-depth", "category": "tool-quality", "name": "Shallow schemas", "weight": 0.5 },
+		{
+			"id": "tool-quality.naming-consistency",
+			"category": "tool-quality",
+			"name": "Consistent parameter naming",
+			"weight": 0.5
+		},
+		{
+			"id": "tool-quality.deprecation-guidance",
+			"category": "tool-quality",
+			"name": "Deprecation guidance",
+			"weight": 0.5
+		},
+		{ "id": "surface.tool-count", "category": "surface", "name": "Focused tool count", "weight": 4.5 },
+		{
+			"id": "surface.tool-distinctiveness",
+			"category": "surface",
+			"name": "Distinct tool descriptions",
+			"weight": 1.5
+		},
 		{
 			"id": "surface.declared-capabilities",
 			"category": "surface",

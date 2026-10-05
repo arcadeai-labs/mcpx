@@ -42,18 +42,33 @@ import { DeclaredCapabilitiesRule } from "./surface/declared-capabilities-rule.t
 import { ResourceListingRule } from "./surface/resource-listing-rule.ts";
 import { ServerInstructionsRule } from "./surface/server-instructions-rule.ts";
 import { ToolCountRule } from "./surface/tool-count-rule.ts";
+import { ToolDistinctivenessRule } from "./surface/tool-distinctiveness-rule.ts";
 import { ActionableErrorsRule } from "./tool-quality/actionable-errors-rule.ts";
+import { AnnotationNameConsistencyRule } from "./tool-quality/annotation-name-consistency-rule.ts";
 import { AnnotationValidityRule } from "./tool-quality/annotation-validity-rule.ts";
+import { BatchLimitsRule } from "./tool-quality/batch-limits-rule.ts";
 import { CredentialParametersRule } from "./tool-quality/credential-parameters-rule.ts";
+import { DependencyHintsRule } from "./tool-quality/dependency-hints-rule.ts";
+import { DeprecationGuidanceRule } from "./tool-quality/deprecation-guidance-rule.ts";
 import { DescriptionContentRule } from "./tool-quality/description-content-rule.ts";
+import { DescriptionSubstanceRule } from "./tool-quality/description-substance-rule.ts";
+import { DestructiveDisclosureRule } from "./tool-quality/destructive-disclosure-rule.ts";
+import { EnumInProseRule } from "./tool-quality/enum-in-prose-rule.ts";
+import { FormatDocumentationRule } from "./tool-quality/format-documentation-rule.ts";
 import { InputConstraintsRule } from "./tool-quality/input-constraints-rule.ts";
+import { NamingConsistencyRule } from "./tool-quality/naming-consistency-rule.ts";
+import { NamingRule } from "./tool-quality/naming-rule.ts";
 import { OutputSchemasRule } from "./tool-quality/output-schemas-rule.ts";
+import { PaginationRule } from "./tool-quality/pagination-rule.ts";
 import { ParameterCountRule } from "./tool-quality/parameter-count-rule.ts";
 import { ParameterDescriptionsRule } from "./tool-quality/parameter-descriptions-rule.ts";
+import { ParameterExamplesRule } from "./tool-quality/parameter-examples-rule.ts";
+import { SchemaDepthRule } from "./tool-quality/schema-depth-rule.ts";
 import { SchemaValidityRule } from "./tool-quality/schema-validity-rule.ts";
 import { ToolDescriptionsRule } from "./tool-quality/tool-descriptions-rule.ts";
 import { ToolTitlesRule } from "./tool-quality/tool-titles-rule.ts";
 import { TypedParametersRule } from "./tool-quality/typed-parameters-rule.ts";
+import { UnsafeDefaultsRule } from "./tool-quality/unsafe-defaults-rule.ts";
 
 export const QUALITY_RULES: readonly QualityRule[] = [
 	new HttpsRule(),
@@ -107,7 +122,22 @@ export const QUALITY_RULES: readonly QualityRule[] = [
 	new CredentialParametersRule(),
 	new SchemaValidityRule(),
 	new AnnotationValidityRule(),
+	new NamingRule(),
+	new DescriptionSubstanceRule(),
+	new DependencyHintsRule(),
+	new AnnotationNameConsistencyRule(),
+	new DestructiveDisclosureRule(),
+	new UnsafeDefaultsRule(),
+	new EnumInProseRule(),
+	new FormatDocumentationRule(),
+	new ParameterExamplesRule(),
+	new BatchLimitsRule(),
+	new PaginationRule(),
+	new SchemaDepthRule(),
+	new NamingConsistencyRule(),
+	new DeprecationGuidanceRule(),
 	new ToolCountRule(),
+	new ToolDistinctivenessRule(),
 	new DeclaredCapabilitiesRule(),
 	new ResourceListingRule(),
 	new ServerInstructionsRule(),
