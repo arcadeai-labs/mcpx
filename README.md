@@ -400,6 +400,13 @@ rule weights and grade bands; custom rubrics may change weights or disable rules
 100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use
 `--no-probe` to skip them.
 
+Tool-quality checks also apply the [Arcade tool patterns](https://www.arcade.dev/patterns): verb-led tool names
+(read synonyms such as `fetch`, `retrieve`, `lookup`, and `describe` count alongside `get`/`list`/`search`), behavior
+annotations that match the name's verb, permanence warnings on destructive tools, safe boolean defaults, prerequisite
+hints for ID parameters, enums instead of prose choices, documented date formats, parameter examples, bounded arrays,
+cursor pagination on list tools, shallow schemas, consistent parameter names, deprecation guidance, and distinct tool
+descriptions.
+
 For HTTP servers, the report also runs MCP Debugger-style wire diagnostics: malformed JSON-RPC and protocol
 headers, Origin rejection, session termination, response envelopes and content types, reserved `_meta`, error and
 notification behavior, OAuth challenge parsing, protected-resource metadata, authorization-server discovery,

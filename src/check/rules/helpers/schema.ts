@@ -55,3 +55,29 @@ export function countToolProperties(tools: Tool[]): number {
 export function toolAnnotations(tool: Tool): JsonObject | undefined {
 	return asObject(toolRecord(tool).annotations);
 }
+
+export function schemaTypes(schema: JsonObject): string[] {
+	if (typeof schema.type === "string") return [schema.type];
+	if (Array.isArray(schema.type)) return schema.type.filter((type): type is string => typeof type === "string");
+	return [];
+}
+
+export function hasEnum(schema: JsonObject): boolean {
+	return Array.isArray(schema.enum) || "const" in schema;
+}
+
+export interface NamedParameter {
+	tool: string;
+	name: string;
+	schema: JsonObject;
+}
+
+export function toolParameters(tools: Tool[]): NamedParameter[] {
+	return tools.flatMap((tool) =>
+		Object.entries(propertiesOf(tool)).map(([name, schema]) => ({ tool: tool.name, name, schema })),
+	);
+}
+
+export function description(schema: JsonObject): string {
+	return typeof schema.description === "string" ? schema.description : "";
+}
