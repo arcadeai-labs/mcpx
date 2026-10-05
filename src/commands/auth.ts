@@ -40,7 +40,7 @@ export function registerAuthCommand(program: Command) {
 			if (options.refresh) {
 				const spinner = logger.startSpinner(`Refreshing token for "${server}"…`, formatOptions);
 				try {
-					await provider.refreshIfNeeded(serverConfig.url);
+					await provider.refreshTokens(serverConfig.url);
 					spinner.success(`Token refreshed for "${server}"`);
 				} catch (err) {
 					spinner.error(`Refresh failed: ${err instanceof Error ? err.message : err}`);
