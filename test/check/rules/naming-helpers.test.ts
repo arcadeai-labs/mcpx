@@ -26,7 +26,7 @@ test("verbs are found after a namespace or a noun", () => {
 	expect(toolVerb("Slack_SendMessage")).toEqual({ verb: "send", intent: "write" });
 	expect(toolVerb("issue_create")).toEqual({ verb: "create", intent: "write" });
 	expect(toolVerb("acme_repo_delete")).toEqual({ verb: "delete", intent: "destructive" });
-	expect(toolVerb("weather_forecast_summary_today")).toBeUndefined();
+	expect(toolVerb("weather_data_summary_today")).toBeUndefined();
 });
 
 test("combined verbs take the stronger intent but nouns do not", () => {
@@ -47,4 +47,13 @@ test("single-word tool mentions require code formatting", () => {
 	expect(mentionsTool("Call list_users first", "list_users")).toBe(true);
 	expect(mentionsTool("Search for records", "search")).toBe(false);
 	expect(mentionsTool("Call `search` first", "search")).toBe(true);
+});
+
+test("select, use, and other common verbs are recognized", () => {
+	expect(toolVerb("Arcade_SelectTools")?.verb).toBe("select");
+	expect(toolVerb("Arcade_UseTool")?.verb).toBe("use");
+	expect(toolVerb("Arcade_ListApps")?.intent).toBe("read");
+	expect(toolVerb("System_ManageAuthorization")?.verb).toBe("manage");
+	expect(toolVerb("notify_team")?.intent).toBe("write");
+	expect(toolVerb("filter_rows")?.intent).toBe("read");
 });
