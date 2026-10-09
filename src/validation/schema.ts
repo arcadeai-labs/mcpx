@@ -1,10 +1,15 @@
-import Ajv, { type ErrorObject } from "ajv";
+import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
+import Ajv2019 from "ajv/dist/2019.js";
+import Ajv2020 from "ajv/dist/2020.js";
 import type { Tool } from "../config/schemas.ts";
 
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajvOptions = { allErrors: true, strict: false };
+const ajvDraft07 = new Ajv(ajvOptions);
+const ajv2019 = new Ajv2019(ajvOptions);
+const ajv2020 = new Ajv2020(ajvOptions);
 
 // Cache compiled validators by a key of "server/tool"
-const validatorCache = new Map<string, ReturnType<typeof ajv.compile>>();
+const validatorCache = new Map<string, ValidateFunction>();
 
 export interface ValidationError {
 	path: string;
@@ -26,7 +31,7 @@ function validateWithSchema(
 
 	if (!validate) {
 		try {
-			validate = ajv.compile(normalizeSchema(schema));
+			validate = compileSchema(normalizeSchema(schema));
 			validatorCache.set(cacheKey, validate);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "unknown error";
@@ -41,6 +46,28 @@ function validateWithSchema(
 
 	const errors = (validate.errors ?? []).map(formatAjvError);
 	return { valid: false, errors };
+}
+
+/**
+ * Compile with the Ajv build matching the schema's `$schema` dialect. The root
+ * `$schema` is dropped so Ajv never has to resolve the meta-schema URI itself
+ * (it only bundles its own draft, and URI spellings vary, e.g. a trailing `#`).
+ * Schemas with no recognized `$schema` use the MCP default dialect (2020-12),
+ * falling back to draft-07 for older schemas such as tuple-form `items: [...]`.
+ */
+function compileSchema(schema: Record<string, unknown>): ValidateFunction {
+	const { $schema, ...rest } = schema;
+	const dialect = typeof $schema === "string" ? $schema : "";
+
+	if (dialect.includes("2020-12")) return ajv2020.compile(rest);
+	if (dialect.includes("2019-09")) return ajv2019.compile(rest);
+	if (/draft-0[467]/.test(dialect)) return ajvDraft07.compile(rest);
+
+	try {
+		return ajv2020.compile(rest);
+	} catch {
+		return ajvDraft07.compile(rest);
+	}
 }
 
 /** Validate tool arguments against the tool's inputSchema */
