@@ -205,6 +205,43 @@ describe("validateToolInput", () => {
 		});
 	});
 
+	describe("$schema dialects (issue #109)", () => {
+		const props = { properties: { query: { type: "string" } }, required: ["query"], type: "object" };
+
+		test.each([
+			["2020-12", "https://json-schema.org/draft/2020-12/schema"],
+			["2019-09", "https://json-schema.org/draft/2019-09/schema"],
+			["draft-07", "http://json-schema.org/draft-07/schema#"],
+			["draft-07 no hash", "http://json-schema.org/draft-07/schema"],
+			["draft-04", "http://json-schema.org/draft-04/schema#"],
+		])("accepts valid and rejects invalid input for %s", (label, $schema) => {
+			const tool = makeTool(`dialect_${label}`, { $schema, ...props });
+			expect(validateToolInput("dialects", tool, { query: "pto" })).toEqual({ valid: true, errors: [] });
+			const bad = validateToolInput("dialects", tool, {});
+			expect(bad.valid).toBe(false);
+			expect(bad.errors[0]?.message).toContain("query");
+		});
+
+		test("supports 2020-12 keywords like prefixItems", () => {
+			const tool = makeTool("prefix_items", {
+				$schema: "https://json-schema.org/draft/2020-12/schema",
+				type: "object",
+				properties: { pair: { type: "array", prefixItems: [{ type: "string" }, { type: "number" }] } },
+			});
+			expect(validateToolInput("s", tool, { pair: ["a", 1] }).valid).toBe(true);
+			expect(validateToolInput("s", tool, { pair: [1, "a"] }).valid).toBe(false);
+		});
+
+		test("falls back to draft-07 for tuple-form items without $schema", () => {
+			const tool = makeTool("tuple_items", {
+				type: "object",
+				properties: { pair: { type: "array", items: [{ type: "string" }, { type: "number" }] } },
+			});
+			expect(validateToolInput("s", tool, { pair: ["a", 1] }).valid).toBe(true);
+			expect(validateToolInput("s", tool, { pair: [1, "a"] }).valid).toBe(false);
+		});
+	});
+
 	test("caches compiled validators", () => {
 		const tool = makeTool("cached_tool", {
 			type: "object",
