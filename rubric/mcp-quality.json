@@ -1,11 +1,11 @@
 {
-	"version": 2,
+	"version": 3,
 	"gradeBands": [
-		{ "grade": "A+", "minimum": 90 },
-		{ "grade": "A", "minimum": 80 },
-		{ "grade": "B", "minimum": 70 },
-		{ "grade": "C", "minimum": 60 },
-		{ "grade": "D", "minimum": 50 },
+		{ "grade": "A+", "minimum": 97 },
+		{ "grade": "A", "minimum": 90 },
+		{ "grade": "B", "minimum": 80 },
+		{ "grade": "C", "minimum": 70 },
+		{ "grade": "D", "minimum": 60 },
 		{ "grade": "F", "minimum": 0 }
 	],
 	"rules": [

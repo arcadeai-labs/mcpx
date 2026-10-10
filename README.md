@@ -396,7 +396,8 @@ progress bars, detailed rule evidence, and prioritized improvements. Use `--json
 machine-readable report with `schemaVersion`, score, grade, category totals, status summary, and every rule result.
 
 The default rubric is [`rubric/mcp-quality.json`](rubric/mcp-quality.json). It is the single source of truth for
-rule weights and grade bands; custom rubrics may change weights or disable rules, but enabled weights must total
+rule weights and grade bands (the default uses a US school scale: A+ ≥ 97, A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60,
+F below 60); custom rubrics may change weights or disable rules, but enabled weights must total
 100. Safe error-quality probes call at most three tools explicitly annotated with `readOnlyHint: true`; use
 `--no-probe` to skip them.
 
