@@ -639,11 +639,11 @@ describe("runOAuthFlow static client", () => {
 				oauth: { clientId: "123.456", callbackPort: port },
 			});
 			mockAuth.mockClear();
-			mockAuth.mockImplementationOnce(async (p: McpOAuthProvider) => {
+			mockAuth.mockImplementationOnce((async (p: McpOAuthProvider) => {
 				expect(p.redirectUrl).toBe(`http://127.0.0.1:${port}/callback`);
 				expect(p.clientInformation()?.client_id).toBe("123.456");
 				return "AUTHORIZED";
-			});
+			}) as () => Promise<string>);
 			await runOAuthFlow("https://mcp.slack.com/mcp", provider);
 			expect(mockAuth).toHaveBeenCalledTimes(1);
 		} finally {

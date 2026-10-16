@@ -5,6 +5,7 @@ import {
 	type OAuthClientProvider,
 	type OAuthDiscoveryState,
 	type OAuthTokens,
+	type StoredOAuthClientInformation,
 	UnauthorizedError,
 } from "@modelcontextprotocol/client";
 import { saveAuth } from "../config/loader.ts";
@@ -88,7 +89,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
 		};
 	}
 
-	clientInformation(): OAuthClientInformationMixed | undefined {
+	clientInformation(): StoredOAuthClientInformation | undefined {
 		const stored = this.auth[this.serverName]?.client_info;
 		const preset = this.oauth;
 		// During an active auth flow, return client_info even if incomplete.
@@ -96,7 +97,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
 		// A pre-registered client in server config is the source of truth and skips
 		// dynamic registration when nothing has been stored yet.
 		if (!preset) return stored;
-		const merged: OAuthClientInformationMixed = { ...(stored ?? {}), client_id: preset.clientId };
+		const merged: StoredOAuthClientInformation = { ...(stored ?? {}), client_id: preset.clientId };
 		if (preset.clientSecret) merged.client_secret = preset.clientSecret;
 		else delete merged.client_secret;
 		return merged;

@@ -4,12 +4,22 @@ import type {
 	OAuthTokens,
 	Prompt,
 	Resource,
+	StoredOAuthClientInformation,
 	Tool,
 } from "@modelcontextprotocol/client";
 import { type McpVersion, parseMcpVersion } from "../client/mcp-version.ts";
 
 // Re-export SDK types we use throughout the codebase
-export type { McpVersion, OAuthClientInformation, OAuthClientInformationMixed, OAuthTokens, Prompt, Resource, Tool };
+export type {
+	McpVersion,
+	OAuthClientInformation,
+	OAuthClientInformationMixed,
+	OAuthTokens,
+	Prompt,
+	Resource,
+	StoredOAuthClientInformation,
+	Tool,
+};
 
 // --- Server config (our format, not MCP spec) ---
 
@@ -75,7 +85,7 @@ export interface ServersFile {
 export interface AuthEntry {
 	tokens: OAuthTokens;
 	expires_at?: string;
-	client_info?: OAuthClientInformationMixed;
+	client_info?: StoredOAuthClientInformation;
 	complete?: boolean;
 }
 
