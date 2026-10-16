@@ -231,6 +231,60 @@ describe("ServerManager with HTTP servers", () => {
 		if (manager) await manager.close();
 	});
 
+	test("pre-connect refresh uses a later oauth config over a provider created without one", async () => {
+		const auth: AuthFile = {
+			"http-server": {
+				tokens: {
+					access_token: "expired-token",
+					token_type: "Bearer",
+					refresh_token: "my-refresh-token",
+				},
+				expires_at: new Date(Date.now() - 60000).toISOString(),
+				client_info: { client_id: "stale-id", client_secret: "stale-secret" },
+				complete: true,
+			},
+		};
+		const servers: ServersFile = {
+			mcpServers: { "http-server": { url: "http://localhost:19999/mcp" } },
+		};
+
+		manager = new ServerManager({
+			servers,
+			configDir: "/tmp",
+			auth,
+			timeout: 1000,
+			maxRetries: 0,
+		});
+
+		const seen: Array<ReturnType<McpOAuthProvider["clientInformation"]>> = [];
+		const refreshSpy = spyOn(McpOAuthProvider.prototype, "refreshIfNeeded").mockImplementation(async function (
+			this: McpOAuthProvider,
+		) {
+			seen.push(this.clientInformation());
+		});
+
+		try {
+			await manager.getClient("http-server");
+		} catch {
+			// Connection failure expected — no real HTTP server
+		}
+
+		const httpServer = servers.mcpServers["http-server"] as HttpServerConfig;
+		httpServer.oauth = { clientId: "123.456", clientSecret: "from-config" };
+
+		try {
+			await manager.getClient("http-server");
+		} catch {
+			// Connection failure expected — no real HTTP server
+		}
+
+		expect(seen).toEqual([
+			{ client_id: "stale-id", client_secret: "stale-secret" },
+			{ client_id: "123.456", client_secret: "from-config" },
+		]);
+		refreshSpy.mockRestore();
+	});
+
 	test("calls refreshIfNeeded for HTTP server with expired OAuth tokens", async () => {
 		const auth: AuthFile = {
 			"http-server": {

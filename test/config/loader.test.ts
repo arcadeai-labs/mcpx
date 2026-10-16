@@ -3,6 +3,7 @@ import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig, saveAuth, saveSearchIndex } from "../../src/config/loader.ts";
+import { parseOAuthClientConfig } from "../../src/config/schemas.ts";
 
 const FIXTURES_DIR = join(import.meta.dir, "../fixtures");
 
@@ -184,6 +185,13 @@ describe("validateServersFile", () => {
 		} finally {
 			await rm(tmpDir, { recursive: true });
 		}
+	});
+
+	test("rejects an empty oauth client secret and out-of-range ports", () => {
+		expect(() => parseOAuthClientConfig({ clientId: "abc", clientSecret: "" }, "slack")).toThrow("clientSecret");
+		expect(() => parseOAuthClientConfig({ clientId: "abc", callbackPort: 0 }, "slack")).toThrow("callbackPort");
+		expect(() => parseOAuthClientConfig({ clientId: "abc", callbackPort: 1.5 }, "slack")).toThrow("callbackPort");
+		expect(() => parseOAuthClientConfig({ clientId: "abc", callbackPort: 70000 }, "slack")).toThrow("callbackPort");
 	});
 
 	test("rejects oauth without a client id", async () => {

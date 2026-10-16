@@ -243,6 +243,8 @@ export class ServerManager {
 				oauth,
 			});
 			this.oauthProviders.set(serverName, provider);
+		} else if (oauth) {
+			provider.setOAuth(oauth);
 		}
 		return provider;
 	}
