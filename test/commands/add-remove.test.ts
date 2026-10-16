@@ -113,6 +113,62 @@ describe("mcpx add", () => {
 		expect(stderr).toContain("require --client-id");
 	});
 
+	test("rejects --client-secret without --client-id", async () => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--client-secret",
+			"sekret",
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("require --client-id");
+	});
+
+	test("omits the redirect URI when no callback port is set", async () => {
+		const { exitCode, stdout } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--client-id",
+			"123.456",
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(0);
+		expect(stdout).not.toContain("OAuth redirect URI:");
+
+		const servers = await Bun.file(join(tmpDir, "servers.json")).json();
+		expect(servers.mcpServers.slack.oauth).toEqual({ clientId: "123.456" });
+	});
+
+	test.each(["nope", "0", "1.5"])("rejects callback port %s", async (port) => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--client-id",
+			"123.456",
+			"--callback-port",
+			port,
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("callbackPort");
+	});
+
 	test("rejects an invalid --callback-port", async () => {
 		const { exitCode, stderr } = await run([
 			"-c",

@@ -75,6 +75,11 @@ export class McpOAuthProvider implements OAuthClientProvider {
 		return this.oauth?.callbackPort ?? 0;
 	}
 
+	/** Replace the static client. Later config wins over a provider created without one. */
+	setOAuth(oauth: OAuthClientConfig): void {
+		this.oauth = oauth;
+	}
+
 	get redirectUrl(): string {
 		return oauthRedirectUrl(this._callbackPort);
 	}

@@ -14,7 +14,7 @@ const mockRefreshAuthorization = mock(() =>
 	}),
 );
 
-const mockAuth = mock(() => Promise.resolve("AUTHORIZED"));
+const mockAuth = mock((_provider?: unknown, _options?: unknown) => Promise.resolve("AUTHORIZED"));
 
 // The authorization server lives on a different origin than the MCP server.
 const AS_METADATA = {
@@ -51,6 +51,30 @@ import {
 	startCallbackServer,
 } from "../../src/client/oauth.ts";
 import { logger } from "../../src/output/logger.ts";
+
+afterEach(() => {
+	mockAuth.mockReset();
+	mockAuth.mockImplementation((_provider?: unknown, _options?: unknown) => Promise.resolve("AUTHORIZED"));
+});
+
+/** Bind `port` after it is released. Retries when the port is taken before the second listen. */
+async function withReclaimedPort(run: (port: number) => Promise<void>): Promise<void> {
+	let last: unknown;
+	for (let attempt = 0; attempt < 8; attempt++) {
+		const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
+		const port = probe.port!;
+		probe.stop(true);
+		try {
+			await run(port);
+			return;
+		} catch (err) {
+			last = err;
+			const message = err instanceof Error ? err.message : String(err);
+			if (!/EADDRINUSE|in use|address already/i.test(message)) throw err;
+		}
+	}
+	throw last;
+}
 
 function makeProvider(auth: AuthFile = {}, serverName = "test-server") {
 	const configDir = "/tmp/mcpx-test";
@@ -430,6 +454,50 @@ describe("refreshIfNeeded", () => {
 		await expect(provider.refreshIfNeeded("http://example.com")).rejects.toThrow("No client information");
 	});
 
+	test("refresh sends the configured client secret instead of a stored one", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-refresh-"));
+		try {
+			const auth: AuthFile = {
+				"test-server": {
+					tokens: {
+						access_token: "old-expired-token",
+						token_type: "Bearer",
+						refresh_token: "my-refresh-token",
+					},
+					expires_at: new Date(Date.now() - 60000).toISOString(),
+					client_info: {
+						client_id: "stale-id",
+						client_secret: "stale-secret",
+						issuer: "https://auth.example.com",
+					},
+					complete: true,
+				},
+			};
+			const provider = new McpOAuthProvider({
+				serverName: "test-server",
+				configDir: dir,
+				auth,
+				oauth: { clientId: "123.456", clientSecret: "from-config" },
+			});
+
+			mockRefreshAuthorization.mockClear();
+			await provider.refreshIfNeeded("http://example.com/mcp");
+
+			expect(mockRefreshAuthorization).toHaveBeenCalledWith("https://auth.example.com", {
+				metadata: AS_METADATA,
+				clientInformation: {
+					client_id: "123.456",
+					client_secret: "from-config",
+					issuer: "https://auth.example.com",
+				},
+				refreshToken: "my-refresh-token",
+				resource: new URL("http://example.com/mcp"),
+			});
+		} finally {
+			await rm(dir, { recursive: true });
+		}
+	});
+
 	test("refreshes token when expired with refresh token and client info", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-refresh-"));
 		const origIsTTY = process.stderr.isTTY;
@@ -589,17 +657,15 @@ describe("startCallbackServer", () => {
 	});
 
 	test("binds the requested callback port", async () => {
-		const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
-		const port = probe.port!;
-		probe.stop(true);
+		await withReclaimedPort(async (port) => {
+			const result = startCallbackServer(port);
+			server = result.server;
+			expect(server.port).toBe(port);
 
-		const result = startCallbackServer(port);
-		server = result.server;
-		expect(server.port).toBe(port);
-
-		const response = await fetch(`http://127.0.0.1:${port}/callback?code=fixed-port`);
-		expect(response.status).toBe(200);
-		expect((await result.authCodePromise).code).toBe("fixed-port");
+			const response = await fetch(`http://127.0.0.1:${port}/callback?code=fixed-port`);
+			expect(response.status).toBe(200);
+			expect((await result.authCodePromise).code).toBe("fixed-port");
+		});
 	});
 
 	test("returns 404 on unknown paths", async () => {
@@ -616,7 +682,7 @@ describe("explainAuthFailure", () => {
 		const message = explainAuthFailure(
 			new Error("Incompatible auth server: does not support dynamic client registration"),
 		);
-		expect(message).toContain("dynamic client registration");
+		expect(message).toContain("register the redirect URI http://127.0.0.1:<callback-port>/callback");
 		expect(message).toContain("--client-id");
 	});
 
@@ -626,29 +692,24 @@ describe("explainAuthFailure", () => {
 });
 
 describe("runOAuthFlow static client", () => {
-	test("listens on the configured callback port and skips registration", async () => {
-		const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
-		const port = probe.port!;
-		probe.stop(true);
+	test("passes the static client and fixed redirect to auth()", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-"));
 		try {
-			const provider = new McpOAuthProvider({
-				serverName: "slack",
-				configDir: dir,
-				auth: {},
-				oauth: { clientId: "123.456", callbackPort: port },
+			await withReclaimedPort(async (port) => {
+				const provider = new McpOAuthProvider({
+					serverName: "slack",
+					configDir: dir,
+					auth: {},
+					oauth: { clientId: "123.456", callbackPort: port },
+				});
+				mockAuth.mockClear();
+				await runOAuthFlow("https://mcp.slack.com/mcp", provider);
+				expect(mockAuth).toHaveBeenCalledTimes(1);
+				expect(mockAuth).toHaveBeenCalledWith(provider, { serverUrl: "https://mcp.slack.com/mcp" });
+				expect(provider.redirectUrl).toBe(`http://127.0.0.1:${port}/callback`);
+				expect(provider.clientInformation()).toEqual({ client_id: "123.456" });
 			});
-			mockAuth.mockClear();
-			mockAuth.mockImplementationOnce((async (p: McpOAuthProvider) => {
-				expect(p.redirectUrl).toBe(`http://127.0.0.1:${port}/callback`);
-				expect(p.clientInformation()?.client_id).toBe("123.456");
-				return "AUTHORIZED";
-			}) as () => Promise<string>);
-			await runOAuthFlow("https://mcp.slack.com/mcp", provider);
-			expect(mockAuth).toHaveBeenCalledTimes(1);
 		} finally {
-			mockAuth.mockReset();
-			mockAuth.mockResolvedValue("AUTHORIZED");
 			await rm(dir, { recursive: true });
 		}
 	});
