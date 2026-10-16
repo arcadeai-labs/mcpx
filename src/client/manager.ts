@@ -15,6 +15,7 @@ import pkg from "../../package.json";
 import type {
 	AuthFile,
 	HttpServerConfig,
+	OAuthClientConfig,
 	Prompt,
 	Resource,
 	ServerConfig,
@@ -154,7 +155,7 @@ export class ServerManager {
 			if (isHttpServer(config)) {
 				const hasAuthEntry = !!this.auth[serverName];
 				if (hasAuthEntry) {
-					const provider = this.getOrCreateOAuthProvider(serverName);
+					const provider = this.getOrCreateOAuthProvider(serverName, config.oauth);
 					if (!provider.isComplete()) {
 						throw new AuthRequiredError(serverName);
 					}
@@ -232,13 +233,14 @@ export class ServerManager {
 		return connectPromise;
 	}
 
-	private getOrCreateOAuthProvider(serverName: string): McpOAuthProvider {
+	private getOrCreateOAuthProvider(serverName: string, oauth?: OAuthClientConfig): McpOAuthProvider {
 		let provider = this.oauthProviders.get(serverName);
 		if (!provider) {
 			provider = new McpOAuthProvider({
 				serverName,
 				configDir: this.configDir,
 				auth: this.auth,
+				oauth,
 			});
 			this.oauthProviders.set(serverName, provider);
 		}
@@ -247,7 +249,7 @@ export class ServerManager {
 
 	private connectAuthProvider(serverName: string, config: HttpServerConfig) {
 		return createConnectAuthProvider({
-			provider: this.getOrCreateOAuthProvider(serverName),
+			provider: this.getOrCreateOAuthProvider(serverName, config.oauth),
 			serverName,
 			serverUrl: config.url,
 		});

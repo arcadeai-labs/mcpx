@@ -43,9 +43,11 @@ import {
 	AuthRequiredError,
 	completeAuthorizationCode,
 	createConnectAuthProvider,
+	explainAuthFailure,
 	isAuthError,
 	McpOAuthProvider,
 	resolveAuthorizationIssuer,
+	runOAuthFlow,
 	startCallbackServer,
 } from "../../src/client/oauth.ts";
 import { logger } from "../../src/output/logger.ts";
@@ -95,6 +97,52 @@ describe("McpOAuthProvider", () => {
 		expect(expiresAt).toBeGreaterThanOrEqual(before + 3600 * 1000);
 		expect(expiresAt).toBeLessThanOrEqual(after + 3600 * 1000);
 
+		await rm(dir, { recursive: true });
+	});
+
+	test("clientInformation() uses a pre-registered client when nothing is stored", () => {
+		const provider = new McpOAuthProvider({
+			serverName: "slack",
+			configDir: "/tmp/mcpx-test",
+			auth: {},
+			oauth: { clientId: "123.456", clientSecret: "sekret", callbackPort: 3118 },
+		});
+		expect(provider.clientInformation()).toEqual({ client_id: "123.456", client_secret: "sekret" });
+		expect(provider.callbackListenPort()).toBe(3118);
+	});
+
+	test("a public pre-registered client drops a stored client secret", () => {
+		const provider = new McpOAuthProvider({
+			serverName: "slack",
+			configDir: "/tmp/mcpx-test",
+			auth: {
+				slack: {
+					tokens: { access_token: "t", token_type: "Bearer" },
+					client_info: { client_id: "old", client_secret: "stale", issuer: "https://mcp.slack.com" },
+				},
+			},
+			oauth: { clientId: "123.456" },
+		});
+		expect(provider.clientInformation()).toEqual({ client_id: "123.456", issuer: "https://mcp.slack.com" });
+	});
+
+	test("pre-registered client survives clearIncomplete", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-"));
+		const auth: AuthFile = {
+			slack: {
+				tokens: { access_token: "t", token_type: "Bearer" },
+				client_info: { client_id: "old" },
+				complete: false,
+			},
+		};
+		const provider = new McpOAuthProvider({
+			serverName: "slack",
+			configDir: dir,
+			auth,
+			oauth: { clientId: "123.456", clientSecret: "sekret" },
+		});
+		await provider.clearIncomplete();
+		expect(provider.clientInformation()).toEqual({ client_id: "123.456", client_secret: "sekret" });
 		await rm(dir, { recursive: true });
 	});
 
@@ -540,12 +588,69 @@ describe("startCallbackServer", () => {
 		expect((err as Error).message).toContain("OAuth error: User denied");
 	});
 
+	test("binds the requested callback port", async () => {
+		const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
+		const port = probe.port!;
+		probe.stop(true);
+
+		const result = startCallbackServer(port);
+		server = result.server;
+		expect(server.port).toBe(port);
+
+		const response = await fetch(`http://127.0.0.1:${port}/callback?code=fixed-port`);
+		expect(response.status).toBe(200);
+		expect((await result.authCodePromise).code).toBe("fixed-port");
+	});
+
 	test("returns 404 on unknown paths", async () => {
 		const result = startCallbackServer();
 		server = result.server;
 
 		const response = await fetch(`http://127.0.0.1:${server.port}/other`);
 		expect(response.status).toBe(404);
+	});
+});
+
+describe("explainAuthFailure", () => {
+	test("hints how to configure a pre-registered client", () => {
+		const message = explainAuthFailure(
+			new Error("Incompatible auth server: does not support dynamic client registration"),
+		);
+		expect(message).toContain("dynamic client registration");
+		expect(message).toContain("--client-id");
+	});
+
+	test("leaves unrelated errors unchanged", () => {
+		expect(explainAuthFailure(new Error("socket hang up"))).toBe("socket hang up");
+	});
+});
+
+describe("runOAuthFlow static client", () => {
+	test("listens on the configured callback port and skips registration", async () => {
+		const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
+		const port = probe.port!;
+		probe.stop(true);
+		const dir = await mkdtemp(join(tmpdir(), "mcpx-oauth-"));
+		try {
+			const provider = new McpOAuthProvider({
+				serverName: "slack",
+				configDir: dir,
+				auth: {},
+				oauth: { clientId: "123.456", callbackPort: port },
+			});
+			mockAuth.mockClear();
+			mockAuth.mockImplementationOnce((async (p: McpOAuthProvider) => {
+				expect(p.redirectUrl).toBe(`http://127.0.0.1:${port}/callback`);
+				expect(p.clientInformation()?.client_id).toBe("123.456");
+				return "AUTHORIZED";
+			}) as () => Promise<string>);
+			await runOAuthFlow("https://mcp.slack.com/mcp", provider);
+			expect(mockAuth).toHaveBeenCalledTimes(1);
+		} finally {
+			mockAuth.mockReset();
+			mockAuth.mockResolvedValue("AUTHORIZED");
+			await rm(dir, { recursive: true });
+		}
 	});
 });
 

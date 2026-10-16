@@ -73,6 +73,9 @@ mcpx search "send a message"
 # See what parameters Slack_SendMessage needs
 mcpx info arcade Slack_SendMessage
 
+# Slack MCP has no dynamic client registration. Register http://127.0.0.1:3118/callback on the Slack app.
+mcpx add slack --url https://mcp.slack.com/mcp --client-id "$SLACK_CLIENT_ID" --client-secret "$SLACK_CLIENT_SECRET" --callback-port 3118
+
 # Send a message (server optional if tool name is unique)
 mcpx exec Slack_SendMessage '{"channel":"#general","message":"hello"}'
 
@@ -228,6 +231,9 @@ use `--json` or `--format json` for stable machine-readable output.
 | `--cwd <dir>`            | Working directory for the command                                                                           |
 | `--url <url>`            | Server URL (HTTP server)                                                                                    |
 | `--header <Key:Value>`   | HTTP header. Repeatable.                                                                                    |
+| `--client-id <id>`       | Pre-registered OAuth client id. Skips dynamic client registration.                                          |
+| `--client-secret <secret>` | OAuth client secret for a confidential client. Requires `--client-id`.                                    |
+| `--callback-port <port>` | Fixed loopback port for `http://127.0.0.1:<port>/callback`. Requires `--client-id`.                         |
 | `--transport <type>`     | Transport: `sse` or `streamable-http`                                                                       |
 | `--allowed-tools <pat>`  | Allowed tool pattern. Repeatable, or comma-separated.                                                       |
 | `--disabled-tools <pat>` | Disabled tool pattern. Repeatable, or comma-separated.                                                      |

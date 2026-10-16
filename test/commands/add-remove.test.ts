@@ -50,6 +50,88 @@ describe("mcpx add", () => {
 		});
 	});
 
+	test("stores a pre-registered OAuth client", async () => {
+		const { exitCode, stdout } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--transport",
+			"streamable-http",
+			"--client-id",
+			"123.456",
+			"--client-secret",
+			"sekret",
+			"--callback-port",
+			"3118",
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("OAuth redirect URI: http://127.0.0.1:3118/callback");
+
+		const servers = await Bun.file(join(tmpDir, "servers.json")).json();
+		expect(servers.mcpServers.slack).toEqual({
+			url: "https://mcp.slack.com/mcp",
+			transport: "streamable-http",
+			oauth: { clientId: "123.456", clientSecret: "sekret", callbackPort: 3118 },
+		});
+	});
+
+	test("rejects OAuth client flags on a stdio server", async () => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"local",
+			"--command",
+			"echo",
+			"--client-id",
+			"123.456",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("HTTP servers");
+	});
+
+	test("rejects --callback-port without --client-id", async () => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--callback-port",
+			"3118",
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("require --client-id");
+	});
+
+	test("rejects an invalid --callback-port", async () => {
+		const { exitCode, stderr } = await run([
+			"-c",
+			tmpDir,
+			"add",
+			"slack",
+			"--url",
+			"https://mcp.slack.com/mcp",
+			"--client-id",
+			"123.456",
+			"--callback-port",
+			"70000",
+			"--no-auth",
+			"--no-index",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("callbackPort");
+	});
+
 	test("adds an http server", async () => {
 		const { exitCode } = await run([
 			"-c",

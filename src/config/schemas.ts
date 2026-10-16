@@ -4,12 +4,22 @@ import type {
 	OAuthTokens,
 	Prompt,
 	Resource,
+	StoredOAuthClientInformation,
 	Tool,
 } from "@modelcontextprotocol/client";
 import { type McpVersion, parseMcpVersion } from "../client/mcp-version.ts";
 
 // Re-export SDK types we use throughout the codebase
-export type { McpVersion, OAuthClientInformation, OAuthClientInformationMixed, OAuthTokens, Prompt, Resource, Tool };
+export type {
+	McpVersion,
+	OAuthClientInformation,
+	OAuthClientInformationMixed,
+	OAuthTokens,
+	Prompt,
+	Resource,
+	StoredOAuthClientInformation,
+	Tool,
+};
 
 // --- Server config (our format, not MCP spec) ---
 
@@ -25,6 +35,22 @@ export interface StdioServerConfig {
 	mcp?: McpVersion;
 }
 
+/**
+ * Pre-registered OAuth client for an HTTP server that does not support
+ * dynamic client registration (for example Slack's MCP server).
+ */
+export interface OAuthClientConfig {
+	/** OAuth client id registered with the authorization server. */
+	clientId: string;
+	/** Client secret for a confidential client. Omit for a public PKCE client. */
+	clientSecret?: string;
+	/**
+	 * Fixed loopback port. The redirect URI is `http://127.0.0.1:<port>/callback`
+	 * and must be registered on the OAuth app before `mcpx auth`.
+	 */
+	callbackPort?: number;
+}
+
 /** HTTP MCP server config */
 export interface HttpServerConfig {
 	url: string;
@@ -34,6 +60,8 @@ export interface HttpServerConfig {
 	disabledTools?: string[];
 	/** MCP protocol era for this server (`v1`, `v2`, or `auto`). Overrides CLI/env. */
 	mcp?: McpVersion;
+	/** Static OAuth client. When set, mcpx skips dynamic client registration. */
+	oauth?: OAuthClientConfig;
 }
 
 export type ServerConfig = StdioServerConfig | HttpServerConfig;
@@ -57,7 +85,7 @@ export interface ServersFile {
 export interface AuthEntry {
 	tokens: OAuthTokens;
 	expires_at?: string;
-	client_info?: OAuthClientInformationMixed;
+	client_info?: StoredOAuthClientInformation;
 	complete?: boolean;
 }
 
@@ -124,6 +152,12 @@ export function validateServersFile(data: unknown): ServersFile {
 				throw new Error(`Server "${name}" has invalid transport "${c.transport}" — must be "sse" or "streamable-http"`);
 			}
 		}
+		if (c.oauth !== undefined) {
+			if (!hasUrl) {
+				throw new Error(`Server "${name}" oauth requires an HTTP server (url)`);
+			}
+			c.oauth = parseOAuthClientConfig(c.oauth, name);
+		}
 		if (c.mcp !== undefined) {
 			if (typeof c.mcp !== "string") {
 				throw new Error(`Server "${name}" has invalid mcp value — must be "v1", "v2", or "auto"`);
@@ -141,6 +175,33 @@ export function validateServersFile(data: unknown): ServersFile {
 	}
 
 	return data as ServersFile;
+}
+
+/** Validate and normalize an `oauth` block from servers.json or CLI flags. */
+export function parseOAuthClientConfig(value: unknown, serverName: string): OAuthClientConfig {
+	if (typeof value !== "object" || value === null) {
+		throw new Error(`Server "${serverName}" oauth must be an object`);
+	}
+	const oauth = value as Record<string, unknown>;
+	if (typeof oauth.clientId !== "string" || oauth.clientId.length === 0) {
+		throw new Error(`Server "${serverName}" oauth.clientId must be a non-empty string`);
+	}
+
+	const config: OAuthClientConfig = { clientId: oauth.clientId };
+	if (oauth.clientSecret !== undefined) {
+		if (typeof oauth.clientSecret !== "string" || oauth.clientSecret.length === 0) {
+			throw new Error(`Server "${serverName}" oauth.clientSecret must be a non-empty string`);
+		}
+		config.clientSecret = oauth.clientSecret;
+	}
+	if (oauth.callbackPort !== undefined) {
+		const port = oauth.callbackPort;
+		if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
+			throw new Error(`Server "${serverName}" oauth.callbackPort must be an integer from 1 to 65535`);
+		}
+		config.callbackPort = port;
+	}
+	return config;
 }
 
 /** Validate auth.json — lenient, just check shape */

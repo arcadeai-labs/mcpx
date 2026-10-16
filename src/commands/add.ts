@@ -1,8 +1,13 @@
 import type { Command } from "commander";
 import { parseMcpVersion } from "../client/mcp-version.ts";
-import { resolveResourceUrl, tryOAuthIfSupported } from "../client/oauth.ts";
+import { oauthRedirectUrl, resolveResourceUrl, tryOAuthIfSupported } from "../client/oauth.ts";
 import { loadRawAuth, loadRawServers, saveServers } from "../config/loader.ts";
-import type { ServerConfig } from "../config/schemas.ts";
+import {
+	type HttpServerConfig,
+	type OAuthClientConfig,
+	parseOAuthClientConfig,
+	type ServerConfig,
+} from "../config/schemas.ts";
 import { logger } from "../output/logger.ts";
 import { runIndex } from "./index.ts";
 
@@ -16,6 +21,9 @@ export function registerAddCommand(program: Command) {
 		.option("--cwd <dir>", "working directory for the command")
 		.option("--url <url>", "server URL (HTTP server)")
 		.option("--header <h>", "header in Key:Value format (repeatable)", collect, [])
+		.option("--client-id <id>", "pre-registered OAuth client id (skips dynamic client registration)")
+		.option("--client-secret <secret>", "OAuth client secret for a confidential client")
+		.option("--callback-port <port>", "fixed loopback port for the OAuth redirect URI")
 		.option("--transport <type>", 'transport for HTTP servers: "sse" or "streamable-http"')
 		.option("--mcp-version <version>", 'MCP protocol era: "v1", "v2", or "auto"')
 		.option("--allowed-tools <pattern>", "allowed tool pattern (repeatable or comma-separated)", collect, [])
@@ -34,6 +42,9 @@ export function registerAddCommand(program: Command) {
 					cwd?: string;
 					url?: string;
 					header: string[];
+					clientId?: string;
+					clientSecret?: string;
+					callbackPort?: string;
 					transport?: string;
 					mcpVersion?: string;
 					allowedTools: string[];
@@ -92,6 +103,11 @@ export function registerAddCommand(program: Command) {
 					config = buildHttpConfig(options);
 				}
 
+				const oauth = oauthConfigFromAddOptions(name, hasUrl, options);
+				if (oauth) {
+					(config as HttpServerConfig).oauth = oauth;
+				}
+
 				if (hasUrl && options.transport) {
 					if (options.transport !== "sse" && options.transport !== "streamable-http") {
 						console.error('--transport must be "sse" or "streamable-http"');
@@ -141,6 +157,13 @@ export function registerAddCommand(program: Command) {
 				servers.mcpServers[name] = config;
 				await saveServers(configDir, servers);
 				console.log(`Added server "${name}" to ${configDir}/servers.json`);
+				if (oauth?.callbackPort) {
+					console.log(`OAuth redirect URI: ${oauthRedirectUrl(oauth.callbackPort)}`);
+				} else if (oauth) {
+					logger.warn(
+						"No --callback-port set. The redirect port is chosen when you authenticate. Pass --callback-port and register http://127.0.0.1:<port>/callback on the OAuth app so the URI stays stable.",
+					);
+				}
 
 				// Auto-auth: probe for OAuth support and run the flow if supported
 				if (hasUrl && options.auth !== false) {
@@ -151,7 +174,7 @@ export function registerAddCommand(program: Command) {
 						showSecrets: false,
 					};
 					try {
-						await tryOAuthIfSupported(name, effectiveUrl, configDir, auth, formatOptions);
+						await tryOAuthIfSupported(name, effectiveUrl, configDir, auth, formatOptions, oauth);
 					} catch {
 						console.error(`Warning: OAuth authentication failed. Run: mcpx auth ${name}`);
 					}
@@ -246,6 +269,41 @@ function buildStdioConfig(
 	}
 
 	return config as unknown as ServerConfig;
+}
+
+function oauthConfigFromAddOptions(
+	name: string,
+	hasUrl: boolean,
+	options: { clientId?: string; clientSecret?: string; callbackPort?: string },
+): OAuthClientConfig | undefined {
+	if (!options.clientId && !options.clientSecret && !options.callbackPort) return undefined;
+	if (!hasUrl) {
+		console.error("--client-id, --client-secret, and --callback-port apply only to HTTP servers (--url)");
+		process.exit(1);
+	}
+	if (!options.clientId) {
+		console.error("--client-secret and --callback-port require --client-id");
+		process.exit(1);
+	}
+
+	let callbackPort: number | undefined;
+	if (options.callbackPort !== undefined) {
+		callbackPort = Number(options.callbackPort);
+	}
+
+	try {
+		return parseOAuthClientConfig(
+			{
+				clientId: options.clientId,
+				...(options.clientSecret !== undefined ? { clientSecret: options.clientSecret } : {}),
+				...(callbackPort !== undefined ? { callbackPort } : {}),
+			},
+			name,
+		);
+	} catch (err) {
+		console.error(err instanceof Error ? err.message : err);
+		process.exit(1);
+	}
 }
 
 function buildHttpConfig(options: { url?: string; header: string[] }): ServerConfig {
