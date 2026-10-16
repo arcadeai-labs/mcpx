@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { McpOAuthProvider, runOAuthFlow } from "../client/oauth.ts";
+import { explainAuthFailure, McpOAuthProvider, runOAuthFlow } from "../client/oauth.ts";
 import { saveAuth } from "../config/loader.ts";
 import { isHttpServer } from "../config/schemas.ts";
 import { getContext } from "../context.ts";
@@ -30,6 +30,7 @@ export function registerAuthCommand(program: Command) {
 				serverName: server,
 				configDir: config.configDir,
 				auth: config.auth,
+				oauth: serverConfig.oauth,
 			});
 
 			if (options.status) {
@@ -55,7 +56,7 @@ export function registerAuthCommand(program: Command) {
 				await runOAuthFlow(serverConfig.url, provider);
 				spinner.success(`Authenticated with "${server}"`);
 			} catch (err) {
-				spinner.error(`Authentication failed: ${err instanceof Error ? err.message : err}`);
+				spinner.error(`Authentication failed: ${explainAuthFailure(err)}`);
 				process.exit(1);
 			}
 

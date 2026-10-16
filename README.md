@@ -173,6 +173,12 @@ mcpx add filesystem --command npx --args "-y,@modelcontextprotocol/server-filesy
 # Add an HTTP server with headers
 mcpx add my-api --url https://api.example.com/mcp --header "Authorization:Bearer tok123"
 
+# Pre-registered OAuth client (no dynamic client registration — Slack MCP, for example).
+# Register http://127.0.0.1:3118/callback as a redirect URI on the Slack app first.
+# Omit --client-secret for a public PKCE client.
+mcpx add slack --url https://mcp.slack.com/mcp --transport streamable-http \
+  --client-id "${SLACK_CLIENT_ID}" --client-secret "${SLACK_CLIENT_SECRET}" --callback-port 3118
+
 # When --url is used, the name is optional — derived from the URL's last path
 # segment (or hostname if there is none). The example below stores the server
 # under the name "evan-coding".
@@ -210,6 +216,9 @@ mcpx remove my-api --dry-run
 | `--cwd <dir>`              | Working directory for the command                                      |
 | `--url <url>`              | Server URL (HTTP server)                                               |
 | `--header <Key:Value>`     | HTTP header. Repeatable.                                               |
+| `--client-id <id>`         | Pre-registered OAuth client id. Skips dynamic client registration.     |
+| `--client-secret <secret>` | OAuth client secret for a confidential client. Requires `--client-id`. |
+| `--callback-port <port>`   | Fixed loopback port for `http://127.0.0.1:<port>/callback`. Requires `--client-id`. |
 | `--transport <type>`       | Transport: `sse` or `streamable-http`                                  |
 | `--allowed-tools <pat>`    | Allowed tool pattern. Repeatable, or comma-separated.                  |
 | `--disabled-tools <pat>`   | Disabled tool pattern. Repeatable, or comma-separated.                 |
@@ -257,13 +266,22 @@ Standard MCP server config format. Supports both stdio and HTTP servers.
     "modern-mcp": {
       "url": "https://mcp.example.com",
       "mcp": "v2"
+    },
+    "slack": {
+      "url": "https://mcp.slack.com/mcp",
+      "transport": "streamable-http",
+      "oauth": {
+        "clientId": "${SLACK_CLIENT_ID}",
+        "clientSecret": "${SLACK_CLIENT_SECRET}",
+        "callbackPort": 3118
+      }
     }
   }
 }
 ```
 
 **Stdio servers** — `command` + `args`, spawned as child processes
-**HTTP servers** — `url`, with optional static `headers` for pre-shared tokens. OAuth is auto-discovered at connection time via `.well-known/oauth-authorization-server` — no config needed. By default, mcpx tries Streamable HTTP first and automatically falls back to legacy SSE if the server doesn't support it. Set `"transport": "sse"` or `"transport": "streamable-http"` to skip auto-detection. Set `"mcp": "v1"`, `"v2"`, or `"auto"` to choose the protocol era (see [MCP versions](#mcp-versions)).
+**HTTP servers** — `url`, with optional static `headers` for pre-shared tokens. OAuth is auto-discovered at connection time via `.well-known/oauth-authorization-server` — no config needed when the server supports dynamic client registration. Servers that do not (Slack's MCP server is one) need an `oauth` block with a pre-registered `clientId`, an optional `clientSecret` for confidential clients, and a `callbackPort` whose redirect URI `http://127.0.0.1:<port>/callback` is registered on the OAuth app. By default, mcpx tries Streamable HTTP first and automatically falls back to legacy SSE if the server doesn't support it. Set `"transport": "sse"` or `"transport": "streamable-http"` to skip auto-detection. Set `"mcp": "v1"`, `"v2"`, or `"auto"` to choose the protocol era (see [MCP versions](#mcp-versions)).
 
 Environment variables are interpolated via `${VAR_NAME}` syntax. Set `MCP_STRICT_ENV=false` to warn instead of error on missing variables.
 
@@ -444,12 +462,15 @@ mcpx auth github --no-index
 The OAuth flow:
 
 1. Discovers the server's OAuth metadata via `/.well-known/oauth-authorization-server`
-2. Starts a local callback server on a random port
-3. Opens the browser for user authorization
-4. Exchanges the authorization code for tokens
-5. Stores tokens in `auth.json`
-6. Automatically refreshes tokens before they expire on any subsequent command
-7. If a stored token is rejected and cannot be refreshed, commands fail immediately with a prompt to run `mcpx auth <server>` — they do not reopen the browser in a loop
+2. Uses `oauth.clientId` from the server config when set, and otherwise registers a client dynamically
+3. Starts a local callback server on `oauth.callbackPort`, or on a random port when that is unset
+4. Opens the browser for user authorization
+5. Exchanges the authorization code for tokens
+6. Stores tokens in `auth.json`
+7. Automatically refreshes tokens before they expire on any subsequent command
+8. If a stored token is rejected and cannot be refreshed, commands fail immediately with a prompt to run `mcpx auth <server>` — they do not reopen the browser in a loop
+
+Slack's MCP server (`https://mcp.slack.com/mcp`) does not support dynamic client registration. Create a Slack app, enable PKCE for a public client (or keep the client secret for a confidential client), and register `http://127.0.0.1:3118/callback` — or whichever `--callback-port` you choose — as a redirect URI. Then add the server with `--client-id` and run `mcpx auth slack`.
 
 ## Search
 

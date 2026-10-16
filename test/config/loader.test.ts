@@ -148,6 +148,57 @@ describe("validateServersFile", () => {
 		}
 	});
 
+	test("accepts a pre-registered oauth client and interpolates its secret", async () => {
+		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
+		process.env.TEST_OAUTH_SECRET = "from-env";
+		try {
+			await Bun.write(
+				join(tmpDir, "servers.json"),
+				JSON.stringify({
+					mcpServers: {
+						slack: {
+							url: "https://mcp.slack.com/mcp",
+							oauth: { clientId: "123.456", clientSecret: "${TEST_OAUTH_SECRET}", callbackPort: 3118 },
+						},
+					},
+				}),
+			);
+			const config = await loadConfig({ configFlag: tmpDir });
+			expect(config.servers.mcpServers.slack).toMatchObject({
+				oauth: { clientId: "123.456", clientSecret: "from-env", callbackPort: 3118 },
+			});
+		} finally {
+			delete process.env.TEST_OAUTH_SECRET;
+			await rm(tmpDir, { recursive: true });
+		}
+	});
+
+	test("rejects oauth on a stdio server", async () => {
+		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
+		try {
+			await Bun.write(
+				join(tmpDir, "servers.json"),
+				JSON.stringify({ mcpServers: { local: { command: "echo", oauth: { clientId: "abc" } } } }),
+			);
+			await expect(loadConfig({ configFlag: tmpDir })).rejects.toThrow("oauth requires an HTTP server");
+		} finally {
+			await rm(tmpDir, { recursive: true });
+		}
+	});
+
+	test("rejects oauth without a client id", async () => {
+		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
+		try {
+			await Bun.write(
+				join(tmpDir, "servers.json"),
+				JSON.stringify({ mcpServers: { slack: { url: "https://mcp.slack.com/mcp", oauth: { callbackPort: 3118 } } } }),
+			);
+			await expect(loadConfig({ configFlag: tmpDir })).rejects.toThrow("oauth.clientId");
+		} finally {
+			await rm(tmpDir, { recursive: true });
+		}
+	});
+
 	test("rejects server without command or url", async () => {
 		const tmpDir = await mkdtemp(join(tmpdir(), "mcpx-test-"));
 		try {

@@ -8,7 +8,7 @@ import {
 	UnauthorizedError,
 } from "@modelcontextprotocol/client";
 import { saveAuth } from "../config/loader.ts";
-import type { AuthFile } from "../config/schemas.ts";
+import type { AuthFile, OAuthClientConfig } from "../config/schemas.ts";
 import type { FormatOptions } from "../output/formatter.ts";
 import { logger } from "../output/logger.ts";
 import { openBrowser } from "./browser.ts";
@@ -36,22 +36,46 @@ export function authRequiredMessage(serverName: string): string {
 	return `Not authenticated with "${serverName}". Run: mcpx auth ${serverName}`;
 }
 
+/** Loopback redirect URI registered with a pre-configured OAuth client. */
+export function oauthRedirectUrl(port: number): string {
+	return `http://127.0.0.1:${port}/callback`;
+}
+
+const DYNAMIC_REGISTRATION_HINT =
+	"This server does not support dynamic client registration. Add it with --client-id and register the redirect URI http://127.0.0.1:<callback-port>/callback on the OAuth app.";
+
+/** Append a next step when an authorization server rejects dynamic client registration. */
+export function explainAuthFailure(err: unknown): string {
+	const message = err instanceof Error ? err.message : String(err);
+	if (message.includes("does not support dynamic client registration")) {
+		return `${message}. ${DYNAMIC_REGISTRATION_HINT}`;
+	}
+	return message;
+}
+
 export class McpOAuthProvider implements OAuthClientProvider {
 	private serverName: string;
 	private configDir: string;
 	auth: AuthFile;
+	private oauth?: OAuthClientConfig;
 	private _codeVerifier?: string;
 	private _discoveryState?: OAuthDiscoveryState;
 	private _callbackPort = 0;
 
-	constructor(opts: { serverName: string; configDir: string; auth: AuthFile }) {
+	constructor(opts: { serverName: string; configDir: string; auth: AuthFile; oauth?: OAuthClientConfig }) {
 		this.serverName = opts.serverName;
 		this.configDir = opts.configDir;
 		this.auth = opts.auth;
+		this.oauth = opts.oauth;
+	}
+
+	/** Port passed to the loopback callback server. `0` asks the OS for an ephemeral port. */
+	callbackListenPort(): number {
+		return this.oauth?.callbackPort ?? 0;
 	}
 
 	get redirectUrl(): string {
-		return `http://127.0.0.1:${this._callbackPort}/callback`;
+		return oauthRedirectUrl(this._callbackPort);
 	}
 
 	get clientMetadata(): OAuthClientMetadata {
@@ -65,10 +89,17 @@ export class McpOAuthProvider implements OAuthClientProvider {
 	}
 
 	clientInformation(): OAuthClientInformationMixed | undefined {
-		const entry = this.auth[this.serverName];
+		const stored = this.auth[this.serverName]?.client_info;
+		const preset = this.oauth;
 		// During an active auth flow, return client_info even if incomplete.
 		// For normal usage (transport), the manager checks isComplete() separately.
-		return entry?.client_info;
+		// A pre-registered client in server config is the source of truth and skips
+		// dynamic registration when nothing has been stored yet.
+		if (!preset) return stored;
+		const merged: OAuthClientInformationMixed = { ...(stored ?? {}), client_id: preset.clientId };
+		if (preset.clientSecret) merged.client_secret = preset.clientSecret;
+		else delete merged.client_secret;
+		return merged;
 	}
 
 	async saveClientInformation(info: OAuthClientInformationMixed): Promise<void> {
@@ -290,7 +321,7 @@ export type OAuthCallbackParams = {
 };
 
 /** Start a local callback server to receive the OAuth authorization code */
-export function startCallbackServer(): {
+export function startCallbackServer(port = 0): {
 	server: ReturnType<typeof Bun.serve>;
 	authCodePromise: Promise<OAuthCallbackParams>;
 } {
@@ -303,7 +334,7 @@ export function startCallbackServer(): {
 	});
 
 	const server = Bun.serve({
-		port: 0,
+		port,
 		fetch(req) {
 			const url = new URL(req.url);
 			if (url.pathname !== "/callback") {
@@ -404,6 +435,7 @@ export async function tryOAuthIfSupported(
 	configDir: string,
 	auth: AuthFile,
 	formatOptions: FormatOptions,
+	oauth?: OAuthClientConfig,
 ): Promise<boolean> {
 	let oauthSupported: boolean;
 	try {
@@ -415,14 +447,14 @@ export async function tryOAuthIfSupported(
 
 	if (!oauthSupported) return false;
 
-	const provider = new McpOAuthProvider({ serverName, configDir, auth });
+	const provider = new McpOAuthProvider({ serverName, configDir, auth, oauth });
 	const spinner = logger.startSpinner(`Authenticating with "${serverName}"…`, formatOptions);
 	try {
 		await runOAuthFlow(serverUrl, provider);
 		spinner.success(`Authenticated with "${serverName}"`);
 		return true;
 	} catch (err) {
-		spinner.error(`Authentication failed: ${err instanceof Error ? err.message : err}`);
+		spinner.error(`Authentication failed: ${explainAuthFailure(err)}`);
 		throw err;
 	}
 }
@@ -432,9 +464,12 @@ export async function runOAuthFlow(serverUrl: string, provider: McpOAuthProvider
 	// Clear any leftover state from a previously cancelled auth flow
 	await provider.clearIncomplete();
 
-	const { server, authCodePromise } = startCallbackServer();
+	const { server, authCodePromise } = startCallbackServer(provider.callbackListenPort());
 	try {
 		provider.setCallbackPort(server.port!);
+		if (provider.callbackListenPort() !== 0) {
+			logger.info(`OAuth redirect URI: ${provider.redirectUrl}`);
+		}
 
 		const result = await auth(provider, { serverUrl });
 		if (result === "REDIRECT") {
